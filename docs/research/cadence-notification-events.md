@@ -43,7 +43,7 @@ Research for issue #3, a child of the in-app notifications map (#2). The source 
 
 ### Comments and questions
 
-A "question" in Cadence is a top-level comment (`comments.parentId IS NULL`) by someone who is neither the owning Instructor nor an admin. Replies go one level deep (`schema.ts:339-345`). Only Students with content access, or staff, can post (`requireContentAccess`, lesson route action at 893).
+A "question" in Cadence is a top-level comment (`comments.parentId IS NULL`) by someone who is neither the owning Instructor nor an admin. Replies go one level deep (`schema.ts:339-345`). Only Students with content access, or staff, can post (`requireContentAccess`, lesson route action at 895).
 
 | # | Event | Where | Caused by | Affects | Frequency | Email today |
 | --- | --- | --- | --- | --- | --- | --- |
