@@ -1,15 +1,8 @@
 import { Outlet } from "react-router";
-import { useState } from "react";
 import { buildPrototypeNotifications } from "~/lib/notifications-prototype.server";
 import {
-  useVariant,
-  useProtoFeed,
-  TOASTER_PROPS,
-  VariantABell,
-  VariantBHeader,
-  VariantBPage,
-  VariantCNavItem,
-  VariantCDrawer,
+  NotificationsProtoProvider,
+  NotificationBell,
   NotificationsPrototypeBar,
 } from "~/components/notifications-prototype";
 import type { Route } from "./+types/layout.app";
@@ -211,7 +204,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       })
     : [];
 
-  // PROTOTYPE: fake Notifications for the bell/feed/toast variants
+  // PROTOTYPE: fake Notifications for the bell, deck and notifications page
   const protoNotifications = buildPrototypeNotifications(
     currentUser ? { id: currentUser.id, role: currentUser.role } : null,
     currentUserId ? isTeamAdmin(currentUserId) : false
@@ -248,50 +241,37 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     protoNotifications,
   } = loaderData;
 
-  // PROTOTYPE: notification UI variants, switched with ?variant=A|B|C
-  const variant = useVariant();
-  const feed = useProtoFeed(
-    currentUser?.id ?? null,
-    protoNotifications.feed, protoNotifications.simulatePool);
-  const [feedPageOpen, setFeedPageOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const signedIn = !!currentUser;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        currentUser={currentUser}
-        recentCourses={recentCourses}
-        isTeamAdmin={userIsTeamAdmin}
-        logoAccessory={signedIn && variant === "A" ? <VariantABell feed={feed} /> : undefined}
-        navAccessory={
-          signedIn && variant === "C" ? (
-            <VariantCNavItem feed={feed} onOpen={() => setDrawerOpen(true)} />
-          ) : undefined
-        }
-      />
-      <main className="flex-1 overflow-y-auto">
-        {signedIn && variant === "B" && (
-          <VariantBHeader feed={feed} onSeeAll={() => setFeedPageOpen(true)} />
-        )}
-        {variant === "B" && feedPageOpen ? (
-          <VariantBPage feed={feed} onClose={() => setFeedPageOpen(false)} />
-        ) : (
-          <Outlet />
-        )}
-      </main>
-      {signedIn && variant === "C" && (
-        <VariantCDrawer feed={feed} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      )}
-      {signedIn && <NotificationsPrototypeBar feed={feed} variant={variant} />}
-      <DevUI
-        users={users}
-        currentUser={currentUser}
-        devCountry={devCountry}
-        countryTierInfo={countryTierInfo}
-        countries={countries}
-      />
-      <Toaster {...TOASTER_PROPS[variant]} richColors closeButton />
-    </div>
+    <NotificationsProtoProvider
+      userId={currentUser?.id ?? null}
+      initial={protoNotifications.feed}
+      pool={protoNotifications.simulatePool}
+    >
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar
+          currentUser={currentUser}
+          recentCourses={recentCourses}
+          isTeamAdmin={userIsTeamAdmin}
+        />
+        {/* PROTOTYPE: wrapper so the floating bell doesn't scroll with the page */}
+        <div className="relative min-w-0 flex-1">
+          <main className="h-full overflow-y-auto">
+            <Outlet />
+          </main>
+          {signedIn && <NotificationBell />}
+        </div>
+        <DevUI
+          users={users}
+          currentUser={currentUser}
+          devCountry={devCountry}
+          countryTierInfo={countryTierInfo}
+          countries={countries}
+        />
+        {signedIn && <NotificationsPrototypeBar />}
+        <Toaster position="bottom-right" richColors closeButton />
+      </div>
+    </NotificationsProtoProvider>
   );
 }
