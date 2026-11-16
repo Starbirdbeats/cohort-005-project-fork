@@ -1,4 +1,17 @@
 import { Outlet } from "react-router";
+import { useState } from "react";
+import { buildPrototypeNotifications } from "~/lib/notifications-prototype.server";
+import {
+  useVariant,
+  useProtoFeed,
+  TOASTER_PROPS,
+  VariantABell,
+  VariantBHeader,
+  VariantBPage,
+  VariantCNavItem,
+  VariantCDrawer,
+  NotificationsPrototypeBar,
+} from "~/components/notifications-prototype";
 import type { Route } from "./+types/layout.app";
 import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
@@ -198,7 +211,14 @@ export async function loader({ request }: Route.LoaderArgs) {
       })
     : [];
 
+  // PROTOTYPE: fake Notifications for the bell/feed/toast variants
+  const protoNotifications = buildPrototypeNotifications(
+    currentUser ? { id: currentUser.id, role: currentUser.role } : null,
+    currentUserId ? isTeamAdmin(currentUserId) : false
+  );
+
   return {
+    protoNotifications,
     users: users.map((u) => ({ id: u.id, name: u.name, role: u.role })),
     currentUser: currentUser
       ? {
@@ -225,7 +245,17 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     countryTierInfo,
     countries,
     isTeamAdmin: userIsTeamAdmin,
+    protoNotifications,
   } = loaderData;
+
+  // PROTOTYPE: notification UI variants, switched with ?variant=A|B|C
+  const variant = useVariant();
+  const feed = useProtoFeed(
+    currentUser?.id ?? null,
+    protoNotifications.feed, protoNotifications.simulatePool);
+  const [feedPageOpen, setFeedPageOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const signedIn = !!currentUser;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -233,10 +263,27 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
         currentUser={currentUser}
         recentCourses={recentCourses}
         isTeamAdmin={userIsTeamAdmin}
+        logoAccessory={signedIn && variant === "A" ? <VariantABell feed={feed} /> : undefined}
+        navAccessory={
+          signedIn && variant === "C" ? (
+            <VariantCNavItem feed={feed} onOpen={() => setDrawerOpen(true)} />
+          ) : undefined
+        }
       />
       <main className="flex-1 overflow-y-auto">
-        <Outlet />
+        {signedIn && variant === "B" && (
+          <VariantBHeader feed={feed} onSeeAll={() => setFeedPageOpen(true)} />
+        )}
+        {variant === "B" && feedPageOpen ? (
+          <VariantBPage feed={feed} onClose={() => setFeedPageOpen(false)} />
+        ) : (
+          <Outlet />
+        )}
       </main>
+      {signedIn && variant === "C" && (
+        <VariantCDrawer feed={feed} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      )}
+      {signedIn && <NotificationsPrototypeBar feed={feed} variant={variant} />}
       <DevUI
         users={users}
         currentUser={currentUser}
@@ -244,7 +291,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
         countryTierInfo={countryTierInfo}
         countries={countries}
       />
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster {...TOASTER_PROPS[variant]} richColors closeButton />
     </div>
   );
 }
