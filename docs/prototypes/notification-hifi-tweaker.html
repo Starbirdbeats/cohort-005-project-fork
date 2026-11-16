@@ -1,0 +1,516 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway hi-fi tweaker for Cadence notifications (segments deck + tabbed page).
+     Served by hifi-tweaker-server.mjs; each tab's Save writes notification-hifi-tokens.json. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cadence notifications · hi-fi tweaker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; }
+  body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#f4f4f2; color:#1a1a1a; display:flex; -webkit-font-smoothing:antialiased; }
+  #stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; min-width:0; overflow:auto; }
+  .stagebar { display:flex; gap:8px; align-items:center; font-size:12.5px; color:#555; }
+  .stagebar select, .stagebar button { font:inherit; font-size:12.5px; border:1px solid #d4d4d4; background:#fff; border-radius:7px; padding:4px 9px; cursor:pointer; }
+  #panel { width:380px; flex-shrink:0; background:#fff; border-left:1px solid #e3e3e3; display:flex; flex-direction:column; height:100%; }
+  .ph { padding:16px 18px 10px; border-bottom:1px solid #eee; }
+  .ph h1 { font-size:15px; margin:0 0 4px; }
+  .ph .prog { font-size:12px; color:#666; }
+  .ph .prog b { color:#1a1a1a; }
+  .bar { height:4px; background:#eee; border-radius:2px; margin-top:8px; overflow:hidden; } .bar i { display:block; height:100%; background:#1a1a1a; transition:width 300ms; }
+  #tabs { display:flex; flex-wrap:wrap; gap:4px; padding:10px 14px; border-bottom:1px solid #eee; }
+  .tb { font:inherit; font-size:12px; border:1px solid #e3e3e3; background:#fff; border-radius:999px; padding:4px 10px 4px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; color:#333; }
+  .tb.on { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
+  .tb .st { width:7px; height:7px; border-radius:50%; background:#d4d4d4; }
+  .tb .st.saved { background:#16a34a; } .tb .st.dirty { background:#f59e0b; }
+  #controls { flex:1; overflow:auto; padding:6px 18px 12px; }
+  .grp { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#999; margin:16px 0 6px; }
+  .ctl { display:grid; grid-template-columns: 1fr auto; gap:2px 10px; align-items:center; padding:7px 0; border-bottom:1px solid #f3f3f3; }
+  .ctl label { font-size:13px; color:#333; }
+  .ctl .val { font-size:12px; color:#777; font-variant-numeric:tabular-nums; }
+  .ctl input[type=range] { grid-column:1 / -1; width:100%; accent-color:#1a1a1a; }
+  .ctl select { font:inherit; font-size:12.5px; border:1px solid #d4d4d4; border-radius:7px; padding:3px 6px; background:#fff; max-width:190px; }
+  .ctl input[type=checkbox] { width:16px; height:16px; accent-color:#1a1a1a; }
+  .ctl.changed label::after { content:" •"; color:#f59e0b; }
+  .pf { padding:12px 18px 16px; border-top:1px solid #eee; display:flex; gap:8px; align-items:center; }
+  .pf button { font:inherit; font-size:13px; border-radius:8px; padding:8px 12px; cursor:pointer; border:1px solid #d4d4d4; background:#fff; }
+  .pf .save { background:#1a1a1a; color:#fff; border-color:#1a1a1a; flex:1; font-weight:500; }
+  .pf .save:disabled { opacity:.45; cursor:default; }
+  #msg { font-size:12px; color:#666; padding:0 18px 10px; min-height:16px; }
+  #done { display:none; margin:10px 14px 0; padding:10px 12px; border-radius:8px; background:#ecfdf5; color:#065f46; font-size:12.5px; line-height:1.4; }
+  .hint { font-size:12px; color:#888; padding:8px 0 0; line-height:1.4; }
+  .play { font:inherit; font-size:12px; border:1px solid #d4d4d4; background:#fff; border-radius:7px; padding:4px 9px; cursor:pointer; margin:4px 4px 0 0; }
+
+  /* ---------- preview: Cadence tokens from app/app.css ---------- */
+  .pv { --background:oklch(1 0 0); --foreground:oklch(0.145 0 0); --popover:oklch(1 0 0); --primary:oklch(0.205 0 0); --primary-foreground:oklch(0.985 0 0);
+    --muted:oklch(0.97 0 0); --muted-foreground:oklch(0.556 0 0); --accent:oklch(0.97 0 0); --border:oklch(0.922 0 0);
+    --sidebar:oklch(0.985 0 0); --sidebar-foreground:oklch(0.145 0 0); --sidebar-accent:oklch(0.97 0 0); --sidebar-border:oklch(0.922 0 0);
+    color:var(--foreground); font-size:14px; }
+  .pv.dark { --background:oklch(0.145 0 0); --foreground:oklch(0.985 0 0); --popover:oklch(0.205 0 0); --primary:oklch(0.922 0 0); --primary-foreground:oklch(0.205 0 0);
+    --muted:oklch(0.269 0 0); --muted-foreground:oklch(0.708 0 0); --accent:oklch(0.269 0 0); --border:oklch(1 0 0 / 10%);
+    --sidebar:oklch(0.205 0 0); --sidebar-foreground:oklch(0.985 0 0); --sidebar-accent:oklch(0.269 0 0); --sidebar-border:oklch(1 0 0 / 10%); }
+  .pv svg.i { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+  .app { width:900px; height:580px; display:flex; border-radius:12px; overflow:hidden; border:1px solid var(--border); background:var(--background); box-shadow:0 24px 60px -24px rgb(0 0 0 / .3); }
+  .side { width:200px; flex-shrink:0; background:var(--sidebar); color:var(--sidebar-foreground); border-right:1px solid var(--sidebar-border); display:flex; flex-direction:column; }
+  .logo { height:56px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid var(--sidebar-border); font-weight:700; font-size:18px; letter-spacing:-.015em; }
+  .nav { padding:12px; display:flex; flex-direction:column; gap:4px; }
+  .nav span { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:8px; font-size:14px; font-weight:500; color:color-mix(in oklab, var(--sidebar-foreground) 70%, transparent); }
+  .nav span.on { background:var(--sidebar-accent); color:var(--sidebar-foreground); }
+  .user { margin-top:auto; border-top:1px solid var(--sidebar-border); padding:12px 14px; display:flex; gap:10px; align-items:center; font-size:14px; font-weight:500; }
+  .user small { display:block; font-size:12px; font-weight:400; color:color-mix(in oklab, var(--sidebar-foreground) 50%, transparent); }
+  .main { flex:1; position:relative; overflow:hidden; min-width:0; }
+  .scroll { height:100%; overflow:auto; }
+  .h1 { margin:0; letter-spacing:-.015em; }
+  .sub { color:var(--muted-foreground); font-size:14px; margin-top:4px; }
+  .grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:16px; margin-top:22px; }
+  .course { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .course .img { height:96px; background:var(--muted); } .course .b { padding:12px 14px; } .course .t { font-weight:600; } .course .m { font-size:12px; color:var(--muted-foreground); margin-top:4px; }
+  .note { margin-top:14px; font-size:12px; color:var(--muted-foreground); }
+  .av { border-radius:50%; background:var(--muted); color:var(--foreground); font-weight:600; display:grid; place-items:center; flex-shrink:0; }
+  .ib { border-radius:8px; display:grid; place-items:center; border:0; background:none; color:var(--muted-foreground); cursor:pointer; padding:0; transition:background-color 150ms, color 150ms; }
+  .ib:hover { background:var(--accent); color:var(--foreground); }
+  .btn { border-radius:8px; font:inherit; font-size:13px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:6px; border:1px solid transparent; transition:opacity 150ms, background-color 150ms; white-space:nowrap; }
+  .btn.filled { background:var(--primary); color:var(--primary-foreground); }
+  .btn.outline { background:var(--background); color:var(--foreground); border-color:var(--border); }
+  .btn.ghost { background:transparent; color:var(--foreground); } .btn.ghost:hover { background:var(--accent); }
+  .btn.link { background:none; color:var(--foreground); padding:0 !important; height:auto !important; text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--border); }
+  .btn svg.i { width:14px; height:14px; }
+  .deck { position:absolute; z-index:20; transform-origin:top right; }
+  .deck.enter { animation:pop var(--deck-dur) cubic-bezier(.23,1,.32,1); }
+  .deck.leave { animation:popOut 140ms ease-out forwards; }
+  .deck.toast-in { animation:toastIn var(--toast-dur) ease; }
+  .deck.toast-out { animation:toastOut var(--toast-dur) ease forwards; }
+  .card { position:relative; background:var(--popover); }
+  .content.in-right { animation:inR var(--flip-dur) cubic-bezier(.23,1,.32,1); }
+  .content.in-left { animation:inL var(--flip-dur) cubic-bezier(.23,1,.32,1); }
+  .content.in-up { animation:inU 220ms cubic-bezier(.23,1,.32,1); }
+  .content.out { animation:out var(--x-dur) ease-out forwards; }
+  .tx b { color:var(--foreground); }
+  .row { display:flex; align-items:center; cursor:pointer; transition:background-color 150ms; position:relative; }
+  .row:hover { background:var(--accent) !important; }
+  .tab { cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-weight:500; transition:color 150ms, background-color 150ms; white-space:nowrap; }
+  @keyframes pop { from { opacity:0; transform:scale(var(--deck-scale)) translateY(-4px); } }
+  @keyframes popOut { to { opacity:0; transform:scale(.97) translateY(-4px); } }
+  @keyframes toastIn { from { opacity:0; transform:translateY(calc(var(--toast-drop) * -1)); } }
+  @keyframes toastOut { to { opacity:0; transform:translateY(calc(var(--toast-drop) * -1)); } }
+  @keyframes inR { from { opacity:0; transform:translateX(var(--flip-d)); } }
+  @keyframes inL { from { opacity:0; transform:translateX(calc(var(--flip-d) * -1)); } }
+  @keyframes inU { from { opacity:0; transform:translateY(6px); } }
+  @keyframes out { to { opacity:0; transform:translateX(16px); } }
+  @keyframes dot { from { transform:scale(0); } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="stagebar">
+    Preview:
+    <select id="pvUnread"><option value="7">7 unread</option><option value="3">3 unread</option><option value="1">1 unread</option><option value="0">0 unread</option></select>
+    <button id="pvTheme">Light / dark</button>
+    <button id="pvView">Show compact</button>
+    <span id="pvNote" style="color:#999"></span>
+  </div>
+  <div id="pv"></div>
+</div>
+<div id="panel">
+  <div class="ph"><h1>Notifications · hi-fi tweaker</h1><div class="prog" id="prog"></div><div class="bar"><i id="progbar"></i></div><div id="done"></div></div>
+  <div id="tabs"></div>
+  <div id="controls"></div>
+  <div id="msg"></div>
+  <div class="pf"><button id="copyall" title="Copy every saved tab as JSON">Copy saved</button><button id="reset">Reset tab</button><button class="save" id="save">Save tab</button></div>
+</div>
+
+<script>
+/* ---------- control spec: one tab per component ---------- */
+const R = (key, label, min, max, step, def, unit = 'px') => ({ key, label, type:'range', min, max, step, def, unit });
+const S = (key, label, options, def) => ({ key, label, type:'select', options, def });
+const T = (key, label, def) => ({ key, label, type:'toggle', def });
+const G = (label) => ({ type:'group', label });
+const TABS = [
+  { id:'bell', name:'Bell', view:'compact', controls:[
+    G('Button'), R('bellSize','Size',28,48,1,36), R('bellIcon','Icon size',14,24,1,18), R('bellTop','Distance from top',8,28,1,12), R('bellRight','Distance from right',8,32,1,16),
+    S('bellFill','Fill',['translucent','solid','none'],'translucent'), T('bellBorder','Border',true), T('bellShadow','Shadow',true),
+    G('Unread dot'), R('dotSize','Dot size',5,12,1,8), S('dotColor','Dot colour',['foreground','blue','red','green'],'foreground'), R('dotRing','Ring around dot',0,4,1,2), R('dotInset','Dot inset from corner',2,12,1,7) ]},
+  { id:'card', name:'Card', view:'compact', controls:[
+    G('Shape'), R('cardWidth','Width',280,440,4,340), R('cardGap','Gap below the bell',4,24,1,8), R('cardRadius','Corner radius',6,22,1,14),
+    R('cardPadX','Padding, sides',10,24,1,14), R('cardPadY','Padding, top and bottom',10,24,1,14),
+    S('cardShadow','Shadow',['none','soft','medium','strong'],'soft'), T('cardBorder','Border',true),
+    G('Leading visual'), S('lead','Show',['avatar','event icon','none'],'avatar'), R('leadSize','Size',20,44,1,32), R('leadGap','Gap to text',6,18,1,12), S('leadShape','Shape',['circle','rounded square'],'circle') ]},
+  { id:'text', name:'Text', view:'compact', controls:[
+    G('Sentence'), R('textSize','Font size',12,17,0.5,14), R('lineHeight','Line height',1.2,1.7,0.05,1.45,''), S('nounWeight','Bold noun weight',['500','600','700'],'600'),
+    S('restTone','Other words',['muted','foreground'],'muted'), S('clamp','Max lines',['none','2','3'],'none'),
+    G('Time'), R('timeSize','Time size',10,14,0.5,12), S('timePlace','Time position',['under sentence','top right','footer'],'under sentence'), R('timeGap','Gap above time',0,10,1,3) ]},
+  { id:'segments', name:'Segments', view:'compact', controls:[
+    R('segHeight','Height',2,6,1,3), R('segGap','Gap',2,10,1,4), R('segRadius','Corner radius',0,3,1,2), R('segMax','Most segments shown',3,8,1,5,''),
+    R('segInactive','Unlit strength',6,45,1,14,'%'), S('segMore','"More" style (last segment)',['dotted','faded','plain'],'dotted'),
+    S('segPlace','Position',['top of card','above buttons','under the card'],'top of card'), R('segSpace','Space to content',4,18,1,12) ]},
+  { id:'actions', name:'Buttons', view:'compact', controls:[
+    G('Footer'), S('footLayout','Layout',['arrows left, Open right','Open left, arrows right','arrows around Open','arrows on card edges'],'arrows left, Open right'),
+    R('footGap','Space above footer',4,20,1,12), T('footIndent','Line up with text',true),
+    G('Open'), S('openStyle','Style',['filled','outline','ghost','link'],'filled'), R('openHeight','Height',24,38,1,32), S('openLabel','Label',['Open','View','Go to it'],'Open'), T('openArrow','Arrow icon',true),
+    G('Arrows and ×'), R('ibSize','Arrow button size',22,34,1,28), R('xSize','× button size',22,34,1,28), R('xIcon','× icon size',12,18,1,16),
+    G('All notifications link'), S('allPlace','Position',['under card','inside card','hidden'],'under card'), R('allSize','Size',11,14,0.5,12) ]},
+  { id:'toast', name:'Toast', view:'toast', controls:[
+    S('toastLabel','Footer label',['New','Just now','none'],'New'), T('toastX','Show ×',true),
+    R('toastDrop','Drop distance',0,28,1,14), R('toastDur','Enter and exit time',150,700,10,400,'ms'), R('toastHide','Hides after',3,12,1,6,'s') ]},
+  { id:'motion', name:'Motion', view:'compact', controls:[
+    R('deckDur','Deck open time',100,360,10,200,'ms'), R('deckScale','Deck starts at scale',0.8,1,0.01,0.95,''),
+    R('flipDist','Flip slide distance',0,28,1,10), R('flipDur','Flip time',80,320,10,180,'ms'), R('xDur','× exit time',80,320,10,160,'ms') ]},
+  { id:'pagehead', name:'Page header', view:'page', controls:[
+    R('pagePad','Page padding',16,56,2,32), S('pageWidth','Content width',['full','840','720'],'full'),
+    R('titleSize','Title size',18,34,1,24), S('titleWeight','Title weight',['600','700'],'700'),
+    S('subText','Subtitle',['N unread','what it is for','none'],'N unread'), S('markStyle','"Mark all as read" style',['outline','ghost','link'],'outline'), R('headGap','Space to tabs',6,36,1,20) ]},
+  { id:'pagetabs', name:'Page tabs', view:'page', controls:[
+    S('tabStyle','Style',['underline','pills','segmented'],'underline'), R('tabSize','Font size',12,16,0.5,14), R('tabGap','Gap',4,36,1,20),
+    S('tabCount','Unread count',['badge','plain number','none'],'badge'), T('tabDivider','Line under tabs',true) ]},
+  { id:'pagerows', name:'Page list', view:'page', controls:[
+    G('List'), S('listStyle','Style',['bordered card','divided rows','separate cards'],'bordered card'), S('groupStyle','Day labels',['small','uppercase','none'],'small'), R('groupGap','Space above day labels',6,28,1,16),
+    G('Row'), R('rowPadY','Padding, top and bottom',6,22,1,12), R('rowPadX','Padding, sides',8,26,1,16), R('rowLead','Avatar size',0,44,1,32), R('rowText','Font size',12,16,0.5,14),
+    S('unreadMark','Unread marker',['dot and tint','dot','tint','left bar','darker text'],'dot and tint'), S('rowTime','Time position',['right','under sentence'],'right') ]},
+];
+const DEF = {}; TABS.forEach(t => t.controls.forEach(c => { if (c.key) DEF[c.key] = c.def; }));
+let V = { ...DEF };
+let SAVED = {};          // tab id -> values object as saved
+let active = 'bell';
+let serverOK = false;
+// The browser pane may show this page from its own viewer, not from the server, so always talk to the server by full address.
+const API = location.origin === 'http://localhost:5199' ? '' : 'http://localhost:5199';
+
+/* ---------- preview state ---------- */
+const IC = {
+  bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+  arrow:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>', check:'<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>',
+  book:'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  cap:'<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+  chart:'<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  ticket:'<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>',
+};
+const ic = (k, size) => `<svg class="i" viewBox="0 0 24 24" ${size ? `style="width:${size}px;height:${size}px"` : ''}>${IC[k]}</svg>`;
+const ITEMS = [
+  { t:'<b>Emma Wilson</b> commented on <b>Loaders</b> in <b>React Router</b>', time:'4 minutes ago', k:'Comments', ev:'msg', day:0 },
+  { t:'<b>Liam Patel</b> enrolled on <b>React Router</b>', time:'38 minutes ago', k:'Sales and Seats', ev:'cart', day:0 },
+  { t:'<b>Noah Kim</b> enrolled on <b>TypeScript Deep Dive</b> through a Team Licence', time:'1 hour ago', k:'Sales and Seats', ev:'ticket', day:0 },
+  { t:'<b>Ava Jones</b> bought a Team Licence for <b>10 Seats</b> on <b>TypeScript Deep Dive</b>', time:'5 hours ago', k:'Sales and Seats', ev:'cart', day:0 },
+  { t:'<b>Mia Lopez</b> replied to your comment on <b>Actions</b>', time:'7 hours ago', k:'Comments', ev:'msg', day:0 },
+  { t:'<b>Olu Ade</b> commented on <b>Forms</b> in <b>React Router</b>', time:'Yesterday', k:'Comments', ev:'msg', day:1 },
+  { t:'<b>Priya Shah</b> enrolled on <b>TypeScript Deep Dive</b>', time:'Yesterday', k:'Sales and Seats', ev:'cart', day:1 },
+  { t:'<b>Jon Berg</b> replied to your comment on <b>Nested routes</b>', time:'3 days ago', k:'Comments', ev:'msg', day:1 },
+  { t:'<b>Kai Moreno</b> enrolled on <b>React Router</b>', time:'4 days ago', k:'Sales and Seats', ev:'cart', day:1 },
+];
+const TAB_NAMES = ['All', 'Unread', 'Comments', 'Sales and Seats'];
+let P;
+function resetPreview(unread) { P = { items: ITEMS.map((n, i) => ({ ...n, id:i, u: i < unread ? 1 : 0 })), idx:0, open:true, view:'app', tab:0, toast:null, theme:(P && P.theme) || 'light', anim:{}, note:'' }; }
+resetPreview(7);
+const unreadList = () => P.items.filter(n => n.u);
+const initials = (t) => t.replace(/<[^>]+>/g, '|').split('|').filter(Boolean)[0].split(' ').map(w => w[0]).join('').slice(0, 2);
+const SHADOWS = { none:'none', soft:'0 12px 32px -8px rgb(0 0 0 / A), 0 2px 6px rgb(0 0 0 / B)', medium:'0 18px 44px -10px rgb(0 0 0 / A), 0 4px 10px rgb(0 0 0 / B)', strong:'0 26px 64px -12px rgb(0 0 0 / A), 0 6px 16px rgb(0 0 0 / B)' };
+const SH_A = { soft:[.16,.06], medium:[.24,.08], strong:[.34,.1] };
+function shadow() {
+  if (V.cardShadow === 'none') return 'none';
+  const [a, b] = SH_A[V.cardShadow], k = P.theme === 'dark' ? 2.6 : 1;
+  return SHADOWS[V.cardShadow].replace('A', Math.min(.9, a * k).toFixed(2)).replace('B', Math.min(.6, b * k).toFixed(2));
+}
+const DOT = { foreground:'var(--foreground)', blue:'oklch(0.623 0.214 259.815)', red:'oklch(0.637 0.237 25.331)', green:'oklch(0.723 0.219 149.579)' };
+
+/* ---------- preview rendering ---------- */
+function leadHTML(n, size, shape) {
+  if (V.lead === 'none' || size <= 0) return '';
+  const r = shape === 'rounded square' ? '8px' : '50%';
+  const inner = V.lead === 'event icon' ? ic(n.ev, Math.round(size * 0.5)) : initials(n.t);
+  return `<div class="av" style="width:${size}px;height:${size}px;border-radius:${r};font-size:${Math.max(10, Math.round(size * 0.36))}px">${inner}</div>`;
+}
+function sentence(n, size, lh, extraTone) {
+  const clamp = V.clamp === 'none' ? '' : `display:-webkit-box;-webkit-line-clamp:${V.clamp};-webkit-box-orient:vertical;overflow:hidden;`;
+  const tone = extraTone || (V.restTone === 'muted' ? 'var(--muted-foreground)' : 'var(--foreground)');
+  return `<div class="tx" style="font-size:${size}px;line-height:${lh};color:${tone};${clamp}">${n.t.replace(/<b>/g, `<b style="font-weight:${V.nounWeight}">`)}</div>`;
+}
+const timeHTML = (n, mt) => `<div style="font-size:${V.timeSize}px;color:var(--muted-foreground);margin-top:${mt}px;white-space:nowrap">${n.time}</div>`;
+function segsHTML(len, idx, where) {
+  if (len <= 1) return '';
+  const shown = Math.min(len, V.segMax), cur = Math.min(idx, shown - 1), more = len > V.segMax;
+  const unlit = `color-mix(in oklab, var(--foreground) ${V.segInactive}%, transparent)`;
+  const seg = (i) => {
+    let bg = i === cur ? 'var(--foreground)' : unlit;
+    if (more && i === shown - 1 && i !== cur) {
+      if (V.segMore === 'dotted') bg = `repeating-linear-gradient(90deg, color-mix(in oklab, var(--foreground) ${Math.min(60, V.segInactive + 12)}%, transparent) 0 3px, transparent 3px 6px)`;
+      if (V.segMore === 'faded') bg = `color-mix(in oklab, var(--foreground) ${Math.max(4, Math.round(V.segInactive / 2))}%, transparent)`;
+    }
+    return `<i style="flex:1;border-radius:${V.segRadius}px;background:${bg};transition:background-color 200ms"></i>`;
+  };
+  const m = where === 'top' ? `margin:0 ${V.xSize + 6}px ${V.segSpace}px 0` : where === 'bottom' ? `margin:${V.segSpace}px 0 0` : `margin:${V.segSpace}px ${V.cardRadius}px 0`;
+  return `<div style="display:flex;gap:${V.segGap}px;height:${V.segHeight}px;${m}">${Array.from({length: shown}, (_, i) => seg(i)).join('')}</div>`;
+}
+const ib = (act, icon) => `<button class="ib" data-p="${act}" style="width:${V.ibSize}px;height:${V.ibSize}px">${ic(icon)}</button>`;
+function openBtn() {
+  const h = V.openHeight, pad = V.openStyle === 'link' ? 0 : 12;
+  return `<button class="btn ${V.openStyle}" data-p="open" style="height:${h}px;padding:0 ${pad}px">${V.openLabel}${V.openArrow ? ic('arrow') : ''}</button>`;
+}
+function allLink(inside) {
+  return `<span data-p="all" style="font-size:${V.allSize}px;color:var(--muted-foreground);display:inline-flex;gap:4px;align-items:center;cursor:pointer;${inside ? '' : 'padding:4px 8px;border-radius:6px;background:color-mix(in oklab, var(--background) 80%, transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);'}">All notifications${ic('arrow', Math.round(V.allSize))}</span>`;
+}
+function cardHTML(n, len, idx, { toast = false, contentAnim = '' } = {}) {
+  const leadW = V.lead === 'none' ? 0 : V.leadSize + V.leadGap;
+  const flip = !toast && len > 1;
+  const label = toast ? (V.toastLabel === 'none' ? '' : V.toastLabel) : (len === 1 ? 'Last one' : '');
+  const labelHTML = label ? `<span style="font-size:12px;color:var(--muted-foreground)">${label}</span>` : '';
+  const arrows = flip ? `<div style="display:flex;gap:2px">${ib('prev', 'left')}${ib('next', 'right')}</div>` : '';
+  const timeInFooter = V.timePlace === 'footer';
+  const leftBits = timeInFooter ? `<span style="font-size:${V.timeSize}px;color:var(--muted-foreground)">${n.time}</span>` : '';
+  let foot;
+  const L = V.footLayout;
+  if (L === 'arrows on card edges') foot = `${leftBits || labelHTML || '<span></span>'}${openBtn()}`;
+  else if (L === 'Open left, arrows right') foot = `${openBtn()}<div style="display:flex;gap:8px;align-items:center">${leftBits}${arrows || labelHTML}</div>`;
+  else if (L === 'arrows around Open') foot = `${leftBits || (flip ? '<span></span>' : labelHTML)}<div style="display:flex;gap:4px;align-items:center">${flip ? ib('prev', 'left') : ''}${openBtn()}${flip ? ib('next', 'right') : ''}</div>`;
+  else foot = timeInFooter ? `${leftBits}<div style="display:flex;gap:6px;align-items:center">${arrows || labelHTML}${openBtn()}</div>` : `${arrows || labelHTML || '<span></span>'}${openBtn()}`;
+  const edgeArrows = (L === 'arrows on card edges' && flip) ? `<button class="ib" data-p="prev" style="position:absolute;left:-${V.ibSize / 2}px;top:50%;transform:translateY(-50%);width:${V.ibSize}px;height:${V.ibSize}px;background:var(--popover);border:1px solid var(--border);border-radius:50%">${ic('left')}</button>
+      <button class="ib" data-p="next" style="position:absolute;right:-${V.ibSize / 2}px;top:50%;transform:translateY(-50%);width:${V.ibSize}px;height:${V.ibSize}px;background:var(--popover);border:1px solid var(--border);border-radius:50%">${ic('right')}</button>` : '';
+  const x = (!toast || V.toastX) ? `<button class="ib" data-p="x" aria-label="Mark as read" style="position:absolute;top:6px;right:6px;width:${V.xSize}px;height:${V.xSize}px">${ic('x', V.xIcon)}</button>` : '';
+  const topRightTime = V.timePlace === 'top right';
+  const textCol = `<div style="flex:1;min-width:0">${sentence(n, V.textSize, V.lineHeight)}${V.timePlace === 'under sentence' ? timeHTML(n, V.timeGap) : ''}</div>`;
+  const body = `<div style="display:flex;gap:${V.leadGap}px;padding-right:${topRightTime ? 0 : V.xSize - 4}px;align-items:flex-start">${leadHTML(n, V.leadSize, V.leadShape)}${textCol}${topRightTime ? `<div style="padding-right:${V.xSize + 2}px">${timeHTML(n, 0)}</div>` : ''}</div>`;
+  const segTop = !toast && V.segPlace === 'top of card' ? segsHTML(len, idx, 'top') : '';
+  const segBottom = !toast && V.segPlace === 'above buttons' ? segsHTML(len, idx, 'bottom') : '';
+  const insideAll = V.allPlace === 'inside card' && !toast ? `<div style="display:flex;justify-content:flex-end;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${allLink(true)}</div>` : '';
+  const footer = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:${V.footGap}px;padding-left:${V.footIndent ? leadW : 0}px;min-height:${Math.max(V.openHeight, V.ibSize)}px">${foot}</div>`;
+  return `<div class="card" style="border-radius:${V.cardRadius}px;padding:${V.cardPadY}px ${V.cardPadX}px;border:${V.cardBorder ? '1px solid var(--border)' : '1px solid transparent'};box-shadow:${shadow()}">
+    ${x}${edgeArrows}${segTop}<div class="content ${contentAnim}">${body}${segBottom}${footer}${insideAll}</div></div>`;
+}
+function bellHTML(hasUnread) {
+  const s = V.bellSize;
+  const fill = V.bellFill === 'translucent' ? 'background:color-mix(in oklab, var(--background) 80%, transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);'
+    : V.bellFill === 'solid' ? 'background:var(--background);' : 'background:transparent;';
+  const on = P.open ? 'background:var(--accent);' : '';
+  const dot = hasUnread ? `<span style="position:absolute;top:${V.dotInset}px;right:${V.dotInset + 1}px;width:${V.dotSize}px;height:${V.dotSize}px;border-radius:50%;background:${DOT[V.dotColor]};box-shadow:0 0 0 ${V.dotRing}px var(--background);${P.anim.dot ? 'animation:dot 180ms cubic-bezier(.23,1,.32,1)' : ''}"></span>` : '';
+  return `<button data-p="bell" aria-label="Notifications" style="position:absolute;top:${V.bellTop}px;right:${V.bellRight}px;z-index:21;width:${s}px;height:${s}px;border-radius:999px;display:grid;place-items:center;cursor:pointer;color:var(--foreground);padding:0;
+    ${fill}${on}border:1px solid ${V.bellBorder && V.bellFill !== 'none' ? 'var(--border)' : 'transparent'};box-shadow:${V.bellShadow && V.bellFill !== 'none' ? '0 1px 2px rgb(0 0 0 / .06)' : 'none'}">${ic('bell', V.bellIcon)}${dot}</button>`;
+}
+function overlayHTML() {
+  const u = unreadList();
+  let out = bellHTML(u.length > 0);
+  const top = V.bellTop + V.bellSize + V.cardGap;
+  const pos = `top:${top}px;right:${V.bellRight}px;width:${V.cardWidth}px`;
+  if (P.open) {
+    const idx = u.length ? P.idx % u.length : 0;
+    const card = u.length ? cardHTML(u[idx], u.length, idx, { contentAnim: P.anim.content || '' })
+      : `<div class="card" style="border-radius:${V.cardRadius}px;padding:${V.cardPadY + 6}px ${V.cardPadX}px;border:${V.cardBorder ? '1px solid var(--border)' : '1px solid transparent'};box-shadow:${shadow()};text-align:center">
+          <div style="font-size:${V.textSize}px;font-weight:600">You're all caught up</div><div style="font-size:${V.textSize - 1}px;color:var(--muted-foreground);margin-top:4px">New notifications will show up here.</div>
+          ${V.allPlace !== 'hidden' ? `<div style="margin-top:10px">${allLink(true)}</div>` : ''}</div>`;
+    const under = V.segPlace === 'under the card' && u.length ? segsHTML(u.length, idx, 'under') : '';
+    const all = V.allPlace === 'under card' && u.length ? `<div style="display:flex;justify-content:flex-end;margin-top:8px">${allLink(false)}</div>` : '';
+    out += `<div class="deck ${P.anim.deck || ''}" style="${pos}">${card}${under}${all}</div>`;
+  } else if (P.toast) {
+    out += `<div class="deck ${P.anim.toast || ''}" style="${pos}">${cardHTML(P.toast, 1, -1, { toast:true })}</div>`;
+  }
+  return out;
+}
+function sideHTML() {
+  const nav = [['book','Browse Courses'],['cap','My Courses'],['chart','Analytics'],['msg','Questions']];
+  return `<div class="side"><div class="logo">Cadence</div><div class="nav">${nav.map(([k, l], i) => `<span class="${P.view !== 'page' && i === 1 ? 'on' : ''}">${ic(k)}${l}</span>`).join('')}</div>
+    <div class="user"><div class="av" style="width:30px;height:30px;font-size:11px">SC</div><div>Sarah Chen<small>Instructor</small></div></div></div>`;
+}
+const coursesHTML = () => `<div style="padding:28px 32px"><h1 class="h1" style="font-size:24px;font-weight:700">My Courses</h1><div class="sub">Manage your courses and track student progress.</div>
+  <div class="grid">${[['React Router','128 students · Published'],['TypeScript Deep Dive','64 students · Published'],['Testing with Vitest','Draft'],['Web Performance','Draft']].map(([t, m]) => `<div class="course"><div class="img"></div><div class="b"><div class="t">${t}</div><div class="m">${m}</div></div></div>`).join('')}</div>
+  ${P.note ? `<div class="note">${P.note}</div>` : ''}</div>`;
+function tabsHTML(unread) {
+  const st = V.tabStyle, fs = V.tabSize;
+  const count = (i) => i === 1 && unread && V.tabCount !== 'none'
+    ? (V.tabCount === 'badge' ? `<span style="font-size:${fs - 3}px;background:${st === 'pills' && P.tab === 1 ? 'color-mix(in oklab, var(--background) 25%, transparent)' : 'var(--muted)'};border-radius:999px;padding:1px 7px;font-weight:600">${unread}</span>` : `<span style="color:var(--muted-foreground);font-weight:400">${unread}</span>`) : '';
+  const tab = (t, i) => {
+    const on = i === P.tab;
+    if (st === 'underline') return `<span class="tab" data-p="tab" data-i="${i}" style="font-size:${fs}px;padding:8px 0;border-bottom:2px solid ${on ? 'var(--foreground)' : 'transparent'};margin-bottom:-1px;color:${on ? 'var(--foreground)' : 'var(--muted-foreground)'}">${t}${count(i)}</span>`;
+    if (st === 'pills') return `<span class="tab" data-p="tab" data-i="${i}" style="font-size:${fs}px;padding:5px 12px;border-radius:999px;background:${on ? 'var(--foreground)' : 'transparent'};color:${on ? 'var(--background)' : 'var(--muted-foreground)'}">${t}${count(i)}</span>`;
+    return `<span class="tab" data-p="tab" data-i="${i}" style="font-size:${fs}px;padding:5px 12px;border-radius:7px;background:${on ? 'var(--background)' : 'transparent'};box-shadow:${on ? '0 1px 2px rgb(0 0 0 / .1)' : 'none'};color:${on ? 'var(--foreground)' : 'var(--muted-foreground)'}">${t}${count(i)}</span>`;
+  };
+  const wrap = st === 'segmented' ? `display:inline-flex;gap:${Math.min(V.tabGap, 6)}px;background:var(--muted);border-radius:10px;padding:4px;`
+    : `display:flex;gap:${V.tabGap}px;${st === 'underline' && V.tabDivider ? 'border-bottom:1px solid var(--border);' : ''}${st === 'pills' && V.tabDivider ? 'padding-bottom:12px;border-bottom:1px solid var(--border);' : ''}`;
+  return `<div style="${wrap}">${TAB_NAMES.map(tab).join('')}</div>`;
+}
+function rowsHTML(list) {
+  const ls = V.listStyle, um = V.unreadMark;
+  const row = (n, i) => {
+    const tint = n.u && (um === 'tint' || um === 'dot and tint') ? 'background:color-mix(in oklab, var(--muted) 75%, transparent);' : '';
+    const dot = um === 'dot' || um === 'dot and tint' ? `<span style="width:8px;height:8px;border-radius:50%;background:${n.u ? DOT[V.dotColor] : 'transparent'};flex-shrink:0"></span>` : '';
+    const bar = um === 'left bar' && n.u ? `<span style="position:absolute;left:0;top:${ls === 'separate cards' ? 10 : 0}px;bottom:${ls === 'separate cards' ? 10 : 0}px;width:3px;background:var(--foreground);border-radius:${ls === 'separate cards' ? '0 2px 2px 0' : '0'}"></span>` : '';
+    const tone = um === 'darker text' ? (n.u ? 'var(--foreground)' : 'var(--muted-foreground)') : null;
+    const sep = ls === 'separate cards' ? 'border:1px solid var(--border);border-radius:12px;' : (i > 0 ? 'border-top:1px solid var(--border);' : '');
+    const lead = V.rowLead > 0 && V.lead !== 'none' ? leadHTML(n, V.rowLead, V.leadShape) : '';
+    const time = `<div style="font-size:${V.timeSize}px;color:var(--muted-foreground);white-space:nowrap;${V.rowTime === 'right' ? '' : `margin-top:${V.timeGap}px`}">${n.time}</div>`;
+    return `<div class="row" data-p="row" data-id="${n.id}" style="gap:12px;padding:${V.rowPadY}px ${V.rowPadX}px;${sep}${tint}">${bar}${lead}
+      <div style="flex:1;min-width:0">${sentence(n, V.rowText, V.lineHeight, tone)}${V.rowTime === 'under sentence' ? time : ''}</div>${V.rowTime === 'right' ? time : ''}${dot}</div>`;
+  };
+  const wrap = ls === 'bordered card' ? 'border:1px solid var(--border);border-radius:12px;overflow:hidden;' : ls === 'separate cards' ? 'display:flex;flex-direction:column;gap:8px;' : '';
+  return `<div style="${wrap}">${list.map(row).join('')}</div>`;
+}
+function pageHTML() {
+  const unread = unreadList().length;
+  const shown = P.items.filter(n => P.tab === 0 || (P.tab === 1 ? n.u : n.k === TAB_NAMES[P.tab]));
+  const label = (t) => V.groupStyle === 'none' ? '' : V.groupStyle === 'uppercase'
+    ? `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);margin:${V.groupGap}px 0 8px">${t}</div>`
+    : `<div style="font-size:12px;font-weight:500;color:var(--muted-foreground);margin:${V.groupGap}px 0 8px">${t}</div>`;
+  const today = shown.filter(n => !n.day), earlier = shown.filter(n => n.day);
+  const groups = V.groupStyle === 'none' ? `<div style="margin-top:${V.groupGap}px">${rowsHTML(shown)}</div>`
+    : `${today.length ? label('Today') + rowsHTML(today) : ''}${earlier.length ? label('Earlier') + rowsHTML(earlier) : ''}`;
+  const sub = V.subText === 'none' ? '' : `<div class="sub">${V.subText === 'N unread' ? (unread ? `${unread} unread` : 'All caught up') : 'Activity on your courses, newest first.'}</div>`;
+  const mark = `<button class="btn ${V.markStyle}" data-p="allread" style="height:32px;padding:0 12px">${V.markStyle === 'link' ? '' : ic('check')}Mark all as read</button>`;
+  const maxw = V.pageWidth === 'full' ? 'none' : V.pageWidth + 'px';
+  return `<div style="padding:28px ${V.pagePad}px"><div style="max-width:${maxw}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-right:${V.bellSize + 12}px">
+      <div><h1 class="h1" style="font-size:${V.titleSize}px;font-weight:${V.titleWeight}">Notifications</h1>${sub}</div>${mark}</div>
+    <div style="margin-top:${V.headGap}px">${tabsHTML(unread)}</div>
+    ${groups}${shown.length ? '' : `<div style="text-align:center;padding:40px;color:var(--muted-foreground);font-size:14px">Nothing in this tab.</div>`}</div></div>`;
+}
+function renderPreview() {
+  const u = unreadList();
+  if (P.idx >= u.length) P.idx = 0;
+  const vars = `--deck-dur:${V.deckDur}ms;--deck-scale:${V.deckScale};--flip-d:${V.flipDist}px;--flip-dur:${V.flipDur}ms;--x-dur:${V.xDur}ms;--toast-drop:${V.toastDrop}px;--toast-dur:${V.toastDur}ms`;
+  document.getElementById('pv').innerHTML = `<div class="pv ${P.theme}" style="${vars}"><div class="app">${sideHTML()}<div class="main"><div class="scroll">${P.view === 'page' ? pageHTML() : coursesHTML()}</div>${overlayHTML()}</div></div></div>`;
+  document.getElementById('pvView').textContent = P.view === 'page' ? 'Show compact' : 'Show page';
+  document.getElementById('pvNote').textContent = `${u.length} unread in preview`;
+  P.anim = {};
+}
+
+/* ---------- preview interactions ---------- */
+const pvq = (sel) => document.querySelector('#pv ' + sel);
+let toastTimer;
+function closeDeck(then) { const d = pvq('.deck'); if (d) d.classList.add('leave'); setTimeout(() => { P.open = false; then && then(); renderPreview(); }, 140); }
+function go(n) { if (!n) return; n.u = 0; P.toast = null; P.view = 'app'; P.note = `Opened: ${n.t.replace(/<[^>]+>/g, '')}`; if (P.open) closeDeck(); else renderPreview(); }
+function flip(d) { const u = unreadList(); if (u.length < 2) return; P.idx = (P.idx + d + u.length) % u.length; P.anim = { content: d > 0 ? 'in-right' : 'in-left' }; renderPreview(); }
+function markTop() { const u = unreadList(); if (!u.length) return; const c = pvq('.content'); c && c.classList.add('out'); setTimeout(() => { u[P.idx % u.length].u = 0; P.anim = { content:'in-up' }; renderPreview(); }, V.xDur); }
+function playToast() {
+  if (P.open) P.open = false;
+  const n = { ...ITEMS[0], id: 900 + Math.floor(performance.now()), u:1, time:'Just now' };
+  P.items.unshift(n); P.toast = n; P.anim = { toast:'toast-in', dot:'pop' }; renderPreview();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { const d = pvq('.deck'); if (d && P.toast === n) { d.classList.add('toast-out'); setTimeout(() => { if (P.toast === n) { P.toast = null; renderPreview(); } }, V.toastDur); } }, V.toastHide * 1000);
+}
+document.getElementById('pv').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-p]');
+  if (!el) { if (P.open && !e.target.closest('.deck')) closeDeck(); return; }
+  const a = el.dataset.p, u = unreadList();
+  if (a === 'bell') { if (P.open) return closeDeck(); P.open = true; P.toast = null; P.idx = 0; P.anim = { deck:'enter' }; renderPreview(); }
+  else if (a === 'prev') flip(-1);
+  else if (a === 'next') flip(1);
+  else if (a === 'x') { if (P.toast) { const d = pvq('.deck'); d && d.classList.add('toast-out'); const t = P.toast; setTimeout(() => { t.u = 0; P.toast = null; renderPreview(); }, V.toastDur); } else markTop(); }
+  else if (a === 'open') go(P.toast || u[P.idx % Math.max(1, u.length)]);
+  else if (a === 'all') { P.view = 'page'; P.note = ''; closeDeck(); }
+  else if (a === 'tab') { P.tab = +el.dataset.i; renderPreview(); }
+  else if (a === 'row') { const n = P.items.find(x => x.id === +el.dataset.id); n.u = 0; renderPreview(); }
+  else if (a === 'allread') { P.items.forEach(n => n.u = 0); renderPreview(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, select')) return;
+  if (!P.open) return;
+  if (e.key === 'ArrowLeft') flip(-1); else if (e.key === 'ArrowRight') flip(1); else if (e.key === 'Escape') closeDeck();
+});
+document.getElementById('pvUnread').onchange = (e) => { const th = P.theme; resetPreview(+e.target.value); P.theme = th; applyTabView(); };
+document.getElementById('pvTheme').onclick = () => { P.theme = P.theme === 'light' ? 'dark' : 'light'; renderPreview(); };
+document.getElementById('pvView').onclick = () => { if (P.view === 'page') { P.view = 'app'; P.open = true; } else { P.view = 'page'; P.open = false; } P.toast = null; renderPreview(); };
+
+/* ---------- panel ---------- */
+const tabOf = (id) => TABS.find(t => t.id === id);
+const tabValues = (id) => Object.fromEntries(tabOf(id).controls.filter(c => c.key).map(c => [c.key, V[c.key]]));
+const isDirty = (id) => !SAVED[id] || JSON.stringify(tabValues(id)) !== JSON.stringify(SAVED[id]);
+const fmt = (c, v) => c.type === 'range' ? `${+(+v).toFixed(2)}${c.unit}` : '';
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = TABS.map(t => {
+    const st = SAVED[t.id] ? (isDirty(t.id) ? 'dirty' : 'saved') : '';
+    return `<button class="tb ${t.id === active ? 'on' : ''}" data-tab="${t.id}"><span class="st ${st}"></span>${t.name}</button>`;
+  }).join('');
+  const n = TABS.filter(t => SAVED[t.id] && !isDirty(t.id)).length;
+  document.getElementById('prog').innerHTML = `<b>${n} of ${TABS.length}</b> tabs saved${serverOK ? ' · saves go to <code>notification-hifi-tokens.json</code>' : ' · <span style="color:#b45309">save server not reachable: saving in this browser only</span>'}`;
+  document.getElementById('progbar').style.width = `${(n / TABS.length) * 100}%`;
+  const done = document.getElementById('done');
+  done.style.display = n === TABS.length ? 'block' : 'none';
+  done.textContent = 'Every tab is saved. This is the committed hi-fi design.';
+  document.getElementById('save').disabled = !isDirty(active);
+  document.getElementById('save').textContent = SAVED[active] && !isDirty(active) ? 'Saved' : 'Save tab';
+}
+function renderControls() {
+  const t = tabOf(active);
+  const extra = active === 'toast' ? `<div><button class="play" data-play="toast">Play toast</button></div><div class="hint">The preview keeps the toast on screen while you tweak. Play shows the real enter, wait and exit.</div>`
+    : active === 'motion' ? `<div><button class="play" data-play="open">Replay deck open</button><button class="play" data-play="flip">Flip ›</button><button class="play" data-play="x">Press ×</button></div>` : '';
+  document.getElementById('controls').innerHTML = extra + t.controls.map(c => {
+    if (c.type === 'group') return `<div class="grp">${c.label}</div>`;
+    const changed = V[c.key] !== c.def ? 'changed' : '';
+    if (c.type === 'range') return `<div class="ctl ${changed}"><label for="c_${c.key}">${c.label}</label><span class="val" id="v_${c.key}">${fmt(c, V[c.key])}</span><input id="c_${c.key}" data-k="${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${V[c.key]}"></div>`;
+    if (c.type === 'select') return `<div class="ctl ${changed}"><label for="c_${c.key}">${c.label}</label><select id="c_${c.key}" data-k="${c.key}">${c.options.map(o => `<option ${o === V[c.key] ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="ctl ${changed}"><label for="c_${c.key}">${c.label}</label><input id="c_${c.key}" data-k="${c.key}" type="checkbox" ${V[c.key] ? 'checked' : ''}></div>`;
+  }).join('');
+}
+function applyTabView() {
+  const v = tabOf(active).view;
+  P.toast = null;
+  if (v === 'page') { P.view = 'page'; P.open = false; }
+  else if (v === 'toast') { P.view = 'app'; P.open = false; P.toast = { ...ITEMS[0], id:999, u:1, time:'Just now' }; }
+  else { P.view = 'app'; P.open = true; }
+  renderPreview();
+}
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  active = b.dataset.tab; document.getElementById('msg').textContent = '';
+  renderTabs(); renderControls(); applyTabView();
+});
+document.getElementById('controls').addEventListener('input', (e) => {
+  const k = e.target.dataset.k; if (!k) return;
+  const c = tabOf(active).controls.find(x => x.key === k);
+  V[k] = c.type === 'range' ? +e.target.value : c.type === 'toggle' ? e.target.checked : e.target.value;
+  if (c.type === 'range') document.getElementById('v_' + k).textContent = fmt(c, V[k]);
+  e.target.closest('.ctl').classList.toggle('changed', V[k] !== c.def);
+  renderTabs(); renderPreview();
+});
+document.getElementById('controls').addEventListener('click', (e) => {
+  const p = e.target.closest('[data-play]'); if (!p) return;
+  const what = p.dataset.play;
+  if (what === 'toast') playToast();
+  if (what === 'open') { P.view = 'app'; P.toast = null; P.open = true; P.anim = { deck:'enter' }; renderPreview(); }
+  if (what === 'flip') { if (!P.open) { P.open = true; renderPreview(); } flip(1); }
+  if (what === 'x') { if (!P.open) { P.open = true; renderPreview(); } markTop(); }
+});
+document.getElementById('reset').onclick = () => {
+  tabOf(active).controls.forEach(c => { if (c.key) V[c.key] = SAVED[active] && c.key in SAVED[active] ? SAVED[active][c.key] : c.def; });
+  document.getElementById('msg').textContent = SAVED[active] ? 'Back to the saved values.' : 'Back to the round 5 defaults.';
+  renderControls(); renderTabs(); renderPreview();
+};
+document.getElementById('save').onclick = async () => {
+  const values = tabValues(active), name = tabOf(active).name;
+  let ok = false;
+  try {
+    const r = await fetch(API + '/save', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify({ tab: active, name, values }) });
+    ok = r.ok; serverOK = ok;
+  } catch { serverOK = false; }
+  SAVED[active] = values;
+  localStorage.setItem('cadence-hifi-saved', JSON.stringify(SAVED));
+  document.getElementById('msg').textContent = ok ? `${name} saved to notification-hifi-tokens.json.` : `${name} saved in this browser only. Start the save server to write the file.`;
+  renderTabs();
+};
+
+document.getElementById('copyall').onclick = async () => {
+  const json = JSON.stringify({ tabs: Object.fromEntries(Object.entries(SAVED).map(([id, values]) => [id, { name: tabOf(id) ? tabOf(id).name : id, values }])) }, null, 2);
+  try { await navigator.clipboard.writeText(json); document.getElementById('msg').textContent = `Copied ${Object.keys(SAVED).length} saved tab(s). Paste them into the chat.`; }
+  catch { document.getElementById('msg').textContent = 'Copy was blocked by the browser.'; }
+};
+
+/* ---------- boot: load saved values ---------- */
+(async () => {
+  let tokens = null, local = {};
+  try { const r = await fetch(API + '/tokens'); if (r.ok) { tokens = await r.json(); serverOK = true; } } catch {}
+  try { local = JSON.parse(localStorage.getItem('cadence-hifi-saved') || '{}'); } catch {}
+  if (tokens && tokens.tabs) {
+    Object.entries(tokens.tabs).forEach(([id, t]) => { SAVED[id] = t.values; });
+    // Push tabs saved in this browser while the server was unreachable.
+    const pending = Object.entries(local).filter(([id]) => !SAVED[id] && tabOf(id));
+    for (const [id, values] of pending) {
+      try { const r = await fetch(API + '/save', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify({ tab:id, name: tabOf(id).name, values }) }); if (r.ok) SAVED[id] = values; } catch {}
+    }
+    if (pending.length) document.getElementById('msg').textContent = `Synced ${pending.length} tab(s) saved earlier in this browser to notification-hifi-tokens.json.`;
+  } else SAVED = local;
+  Object.values(SAVED).forEach(vals => Object.assign(V, vals));
+  renderTabs(); renderControls(); applyTabView();
+})();
+</script>
+</body>
+</html>

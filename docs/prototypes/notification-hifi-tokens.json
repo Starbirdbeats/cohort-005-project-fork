@@ -1,0 +1,145 @@
+{
+  "tabs": {
+    "bell": {
+      "name": "Bell",
+      "values": {
+        "bellSize": 36,
+        "bellIcon": 20,
+        "bellTop": 12,
+        "bellRight": 16,
+        "bellFill": "translucent",
+        "bellBorder": true,
+        "bellShadow": true,
+        "dotSize": 6,
+        "dotColor": "red",
+        "dotRing": 2,
+        "dotInset": 7
+      },
+      "savedAt": "2026-11-16T08:47:07.844Z"
+    },
+    "card": {
+      "name": "Card",
+      "values": {
+        "cardWidth": 400,
+        "cardGap": 9,
+        "cardRadius": 14,
+        "cardPadX": 16,
+        "cardPadY": 19,
+        "cardShadow": "soft",
+        "cardBorder": true,
+        "lead": "none",
+        "leadSize": 22,
+        "leadGap": 11,
+        "leadShape": "circle"
+      },
+      "savedAt": "2026-11-16T08:48:37.178Z"
+    },
+    "text": {
+      "name": "Text",
+      "values": {
+        "textSize": 15,
+        "lineHeight": 1.45,
+        "nounWeight": "600",
+        "restTone": "muted",
+        "clamp": "2",
+        "timeSize": 11,
+        "timePlace": "footer",
+        "timeGap": 3
+      },
+      "savedAt": "2026-11-16T08:49:05.341Z"
+    },
+    "segments": {
+      "name": "Segments",
+      "values": {
+        "segHeight": 3,
+        "segGap": 6,
+        "segRadius": 3,
+        "segMax": 8,
+        "segInactive": 14,
+        "segMore": "faded",
+        "segPlace": "top of card",
+        "segSpace": 18
+      },
+      "savedAt": "2026-11-16T08:50:06.107Z"
+    },
+    "actions": {
+      "name": "Buttons",
+      "values": {
+        "footLayout": "arrows left, Open right",
+        "footGap": 4,
+        "footIndent": true,
+        "openStyle": "filled",
+        "openHeight": 27,
+        "openLabel": "View",
+        "openArrow": true,
+        "ibSize": 28,
+        "xSize": 28,
+        "xIcon": 16,
+        "allPlace": "hidden",
+        "allSize": 12
+      },
+      "savedAt": "2026-11-16T08:51:19.854Z"
+    },
+    "toast": {
+      "name": "Toast",
+      "values": {
+        "toastLabel": "New",
+        "toastX": true,
+        "toastDrop": 18,
+        "toastDur": 520,
+        "toastHide": 6
+      },
+      "savedAt": "2026-11-16T08:51:51.126Z"
+    },
+    "motion": {
+      "name": "Motion",
+      "values": {
+        "deckDur": 200,
+        "deckScale": 0.95,
+        "flipDist": 10,
+        "flipDur": 180,
+        "xDur": 160
+      },
+      "savedAt": "2026-11-16T08:51:26.520Z"
+    },
+    "pagehead": {
+      "name": "Page header",
+      "values": {
+        "pagePad": 32,
+        "pageWidth": "full",
+        "titleSize": 24,
+        "titleWeight": "700",
+        "subText": "N unread",
+        "markStyle": "outline",
+        "headGap": 20
+      },
+      "savedAt": "2026-11-16T08:51:58.507Z"
+    },
+    "pagetabs": {
+      "name": "Page tabs",
+      "values": {
+        "tabStyle": "underline",
+        "tabSize": 14,
+        "tabGap": 20,
+        "tabCount": "badge",
+        "tabDivider": true
+      },
+      "savedAt": "2026-11-16T08:52:00.784Z"
+    },
+    "pagerows": {
+      "name": "Page list",
+      "values": {
+        "listStyle": "bordered card",
+        "groupStyle": "small",
+        "groupGap": 17,
+        "rowPadY": 12,
+        "rowPadX": 13,
+        "rowLead": 23,
+        "rowText": 13,
+        "unreadMark": "tint",
+        "rowTime": "right"
+      },
+      "savedAt": "2026-11-16T08:53:00.292Z"
+    }
+  }
+}

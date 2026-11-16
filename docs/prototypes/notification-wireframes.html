@@ -1,0 +1,836 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway low-fi whiteboard for "How should the bell, feed and toasts look in Cadence?" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cadence notifications: 5 low-fi iterations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" />
+<style>
+  :root { --ink:#2b2b2b; --mid:#8a8a8a; --soft:#d6d6d6; --wash:#f1f1f1; --paper:#fff; --accent:#2f6fde; --note:#fff4b8; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; color:var(--ink); }
+  body { background:#fafaf7; overflow:hidden; }
+  #viewport { position:fixed; inset:0; overflow:hidden; cursor:grab;
+    background-image: radial-gradient(#cfcfc8 1px, transparent 1px); background-size: 22px 22px; }
+  #viewport.dragging { cursor:grabbing; }
+  #canvas { position:absolute; left:0; top:0; transform-origin:0 0; padding:60px; width:1700px; }
+  .toolbar { position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:10; display:flex; gap:6px; align-items:center;
+    background:#fff; border:1.5px solid var(--ink); border-radius:999px; padding:4px 6px; font-size:13px; }
+  .toolbar button { border:0; background:none; font:inherit; padding:4px 10px; border-radius:999px; cursor:pointer; }
+  .toolbar button:hover { background:var(--wash); }
+  h1 { font-size:30px; margin:0 0 6px; }
+  .lead { color:#555; margin:0 0 26px; max-width:900px; line-height:1.5; }
+  .principles { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:40px; }
+  .sticky { background:var(--note); padding:12px 14px; width:280px; font-size:13px; line-height:1.45; transform:rotate(-0.6deg);
+    box-shadow: 2px 3px 0 rgba(0,0,0,.08); }
+  .sticky:nth-child(even){ transform:rotate(0.7deg); }
+  .sticky b { display:block; margin-bottom:4px; }
+  .sticky .src { color:#7a6a20; font-size:11.5px; margin-top:6px; }
+  .frame { display:flex; gap:28px; align-items:flex-start; margin-bottom:64px; }
+  .frame-label { width:220px; flex-shrink:0; }
+  .frame-label .num { font-size:44px; font-weight:700; line-height:1; }
+  .frame-label .name { font-size:20px; font-weight:700; margin:4px 0 8px; }
+  .frame-label p { font-size:13px; color:#444; line-height:1.45; margin:0 0 8px; }
+  .shot { flex-shrink:0; }
+  .cap { font-size:12px; color:var(--mid); margin:0 0 6px; text-transform:lowercase; letter-spacing:.02em; }
+  /* low-fi app shell */
+  .app { position:relative; width:560px; height:360px; border:2px solid var(--ink); border-radius:10px; background:var(--paper); display:flex; overflow:hidden; }
+  .side { width:104px; border-right:1.5px solid var(--soft); padding:10px 8px; display:flex; flex-direction:column; gap:7px; }
+  .logo { font-weight:700; font-size:12px; margin-bottom:6px; }
+  .bar { height:7px; background:var(--soft); border-radius:4px; }
+  .bar.dk { background:#bdbdbd; }
+  .main { flex:1; padding:22px 20px; position:relative; }
+  .ph-title { width:160px; height:14px; background:#bdbdbd; border-radius:4px; margin-bottom:14px; }
+  .ph-row { display:flex; gap:10px; margin-bottom:10px; }
+  .ph-card { flex:1; height:70px; border:1.5px dashed var(--soft); border-radius:8px; }
+  .muted .ph-title, .muted .ph-card { opacity:.45; }
+  /* floating chrome */
+  .float { position:absolute; top:10px; right:12px; z-index:3; }
+  .pill { display:inline-flex; align-items:center; gap:5px; border:1.5px solid var(--ink); border-radius:999px; padding:3px 9px; font-size:11px; background:rgba(255,255,255,.85); }
+  .bell { display:inline-block; width:12px; height:12px; border:1.5px solid var(--ink); border-radius:6px 6px 2px 2px; position:relative; }
+  .bell::after { content:""; position:absolute; bottom:-4px; left:3px; width:3px; height:2px; background:var(--ink); border-radius:2px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); display:inline-block; }
+  .count { font-weight:700; }
+  .pop { position:absolute; right:0; top:30px; width:270px; background:#fff; border:1.5px solid var(--ink); border-radius:12px; padding:10px 12px;
+    box-shadow: 3px 4px 0 rgba(0,0,0,.08); font-size:10.5px; }
+  .pop .hd { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .pop .hd b { font-size:12px; }
+  .link { color:var(--accent); font-size:10px; }
+  .item { display:flex; gap:7px; align-items:flex-start; padding:5px 0; line-height:1.35; color:#555; }
+  .item b { color:var(--ink); }
+  .item .av { width:16px; height:16px; border-radius:50%; background:var(--soft); flex-shrink:0; margin-top:1px; }
+  .item .t { margin-left:auto; color:var(--mid); flex-shrink:0; padding-left:6px; }
+  .item.unread .av { outline:2px solid var(--accent); outline-offset:1px; }
+  .fade { height:14px; margin:-14px -12px 0; background:linear-gradient(transparent, #fff); position:relative; }
+  .foot { text-align:center; padding-top:6px; }
+  .origin { position:absolute; width:46px; height:46px; border:1.5px dashed var(--accent); border-radius:50%; right:-8px; top:-12px; }
+  .arrow-note { position:absolute; font-size:10px; color:var(--accent); font-style:italic; }
+  /* expanded page */
+  .page-h { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .page-h b { font-size:15px; }
+  .tabs { display:flex; gap:4px; margin-bottom:10px; font-size:11px; }
+  .tab { padding:3px 9px; border-radius:999px; color:#555; }
+  .tab.on { background:var(--ink); color:#fff; }
+  .tab.under { border-radius:0; padding:3px 6px; }
+  .tab.under.on { background:none; color:var(--ink); border-bottom:2px solid var(--ink); font-weight:700; }
+  .group { font-size:9.5px; color:var(--mid); text-transform:uppercase; letter-spacing:.06em; margin:8px 0 2px; }
+  .row { display:flex; gap:8px; align-items:center; padding:6px 4px; font-size:10.5px; color:#555; border-radius:6px; }
+  .row b { color:var(--ink); }
+  .row .av { width:18px; height:18px; border-radius:50%; background:var(--soft); flex-shrink:0; }
+  .row .t { margin-left:auto; color:var(--mid); font-size:10px; flex-shrink:0; }
+  .row.unread { background:#f3f6fd; }
+  .chip { font-size:9.5px; border:1.2px solid var(--soft); border-radius:999px; padding:1px 7px; color:#555; }
+  .chip.on { border-color:var(--ink); color:var(--ink); }
+  .toast { position:absolute; background:#fff; border:1.5px solid var(--ink); border-radius:10px; padding:7px 9px; font-size:10px; width:230px; color:#555;
+    box-shadow: 2px 3px 0 rgba(0,0,0,.08); }
+  .toast b { color:var(--ink); }
+  .btn { display:inline-block; border:1.2px solid var(--ink); border-radius:6px; padding:1px 7px; font-size:9.5px; color:var(--ink); }
+  .btn.pri { background:var(--ink); color:#fff; }
+  .round { margin-top:40px; padding-top:40px; border-top:3px dashed var(--soft); }
+  .round-tag { display:inline-block; background:var(--ink); color:#fff; font-size:12px; padding:3px 10px; border-radius:999px; margin-bottom:10px; }
+  .sb-h { font-size:18px; margin:6px 0 12px; }
+  .story { display:grid; grid-template-columns:repeat(4, 350px); gap:26px 28px; margin-bottom:46px; }
+  .step .cap { color:var(--ink); font-size:12.5px; text-transform:none; }
+  .step .cap b { margin-right:4px; }
+  .step .why { font-size:11.5px; color:#666; margin-top:6px; line-height:1.4; }
+  .crop { position:relative; width:350px; height:250px; border:2px solid var(--ink); border-radius:10px; overflow:hidden; background:#fff; padding:18px 16px; }
+  .crop .ph-title, .crop .ph-card { opacity:.4; }
+  .bellbtn { position:absolute; top:10px; right:12px; z-index:5; width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:999px; cursor:pointer; background:rgba(255,255,255,.85); }
+  .bellbtn.on { background:var(--wash); }
+  .bdot { position:absolute; top:4px; right:5px; width:7px; height:7px; border:1.5px solid #fff; box-sizing:content-box; }
+  .deck { position:absolute; top:42px; right:12px; width:262px; z-index:4; font-size:10.5px; }
+  .card { position:absolute; left:0; right:0; height:84px; background:#fff; border:1.5px solid var(--ink); border-radius:12px; padding:9px 10px; box-shadow:2px 3px 0 rgba(0,0,0,.07); }
+  .card.behind { transform-origin:50% 0; }
+  .card .x { position:absolute; top:5px; right:6px; border:0; background:none; font-size:13px; line-height:1; cursor:pointer; color:#555; padding:2px 4px; border-radius:4px; }
+  .card .x:hover, .flipb:hover { background:var(--wash); }
+  .card .item { padding:0 16px 0 0; }
+  .cardfoot { position:absolute; left:10px; right:10px; bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+  .flip { color:#777; font-size:10px; display:flex; align-items:center; gap:4px; }
+  .flipb { border:0; background:none; cursor:pointer; font-size:13px; padding:0 5px; border-radius:4px; color:var(--ink); }
+  .btn { cursor:pointer; }
+  .decklink { text-align:right; margin-top:7px; }
+  .note-arrow { position:absolute; font-size:10px; color:var(--accent); font-style:italic; }
+  .sim { font:inherit; font-size:12px; border:1.5px solid var(--ink); background:#fff; border-radius:6px; padding:3px 9px; cursor:pointer; }
+  #live .app { width:780px; height:480px; }
+  .row.click, .tab.click { cursor:pointer; }
+  .crop3 { position:relative; width:290px; height:172px; border:2px solid var(--ink); border-radius:10px; overflow:hidden; background:#fff; padding:14px; }
+  .crop3 .ph-title, .crop3 .ph-card { opacity:.35; }
+  .r3row { display:flex; gap:18px; align-items:flex-start; margin-bottom:30px; }
+  .r3label { width:180px; flex-shrink:0; font-size:12.5px; line-height:1.45; color:#444; }
+  .r3label .nm { font-size:17px; font-weight:700; color:var(--ink); margin:2px 0 6px; }
+  .r3label .lt { font-size:30px; font-weight:700; line-height:1; color:var(--ink); }
+  .d3 { position:absolute; top:42px; right:12px; width:236px; z-index:4; font-size:10.5px; }
+  .c3 { position:absolute; left:0; right:0; top:0; height:78px; background:#fff; border:1.5px solid var(--ink); border-radius:12px; padding:8px 10px; }
+  .c3.back { background:#f4f4f4; }
+  .c3 .x { position:absolute; top:4px; right:5px; border:0; background:none; font-size:13px; cursor:pointer; color:#555; padding:2px 4px; border-radius:4px; }
+  .c3 .item { padding:0 14px 0 0; }
+  .c3foot { position:absolute; left:10px; right:10px; bottom:7px; display:flex; align-items:center; justify-content:space-between; }
+  .pdots { display:flex; gap:4px; align-items:center; }
+  .pdots i { width:6px; height:6px; border-radius:50%; background:var(--soft); display:block; }
+  .pdots i.on { background:var(--ink); }
+  .pdots i.sm { width:4px; height:4px; }
+  .segs { position:absolute; left:10px; right:22px; top:5px; display:flex; gap:3px; }
+  .segs i { flex:1; height:3px; border-radius:2px; background:var(--soft); display:block; }
+  .segs i.on { background:var(--ink); }
+  .segs i.more { background:none; border-top:2px dotted var(--mid); height:0; margin-top:1px; }
+  .r3btn { font:inherit; font-size:12px; border:1.5px solid var(--ink); background:#fff; border-radius:999px; padding:3px 11px; cursor:pointer; }
+  .r3btn.on { background:var(--ink); color:#fff; }
+  /* ---------- round 5: high fidelity, Cadence tokens (app/app.css) ---------- */
+  .hf { --background:oklch(1 0 0); --foreground:oklch(0.145 0 0); --popover:oklch(1 0 0); --primary:oklch(0.205 0 0); --primary-foreground:oklch(0.985 0 0);
+    --muted:oklch(0.97 0 0); --muted-foreground:oklch(0.556 0 0); --accent:oklch(0.97 0 0); --border:oklch(0.922 0 0);
+    --sidebar:oklch(0.985 0 0); --sidebar-foreground:oklch(0.145 0 0); --sidebar-accent:oklch(0.97 0 0); --sidebar-border:oklch(0.922 0 0);
+    --shadow-card: 0 12px 32px -8px rgb(0 0 0 / .16), 0 2px 6px rgb(0 0 0 / .06);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif; color:var(--foreground); -webkit-font-smoothing:antialiased; }
+  .hf.dark { --background:oklch(0.145 0 0); --foreground:oklch(0.985 0 0); --popover:oklch(0.205 0 0); --primary:oklch(0.922 0 0); --primary-foreground:oklch(0.205 0 0);
+    --muted:oklch(0.269 0 0); --muted-foreground:oklch(0.708 0 0); --accent:oklch(0.269 0 0); --border:oklch(1 0 0 / 10%);
+    --sidebar:oklch(0.205 0 0); --sidebar-foreground:oklch(0.985 0 0); --sidebar-accent:oklch(0.269 0 0); --sidebar-border:oklch(1 0 0 / 10%);
+    --shadow-card: 0 16px 40px -8px rgb(0 0 0 / .6), 0 2px 6px rgb(0 0 0 / .3); }
+  .hf * { box-sizing:border-box; }
+  .hf svg.i { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+  .hf-app { width:780px; height:500px; display:flex; border-radius:12px; overflow:hidden; border:1px solid var(--border); background:var(--background); box-shadow:0 24px 60px -24px rgb(0 0 0 / .35); font-size:14px; }
+  .hf-side { width:196px; flex-shrink:0; background:var(--sidebar); color:var(--sidebar-foreground); border-right:1px solid var(--sidebar-border); display:flex; flex-direction:column; }
+  .hf-logo { height:56px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid var(--sidebar-border); font-weight:700; font-size:18px; letter-spacing:-.015em; }
+  .hf-nav { padding:12px; display:flex; flex-direction:column; gap:4px; }
+  .hf-nav span { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:8px; font-size:14px; font-weight:500; color:color-mix(in oklab, var(--sidebar-foreground) 70%, transparent); }
+  .hf-nav span.on { background:var(--sidebar-accent); color:var(--sidebar-foreground); }
+  .hf-user { margin-top:auto; border-top:1px solid var(--sidebar-border); padding:12px 14px; display:flex; gap:10px; align-items:center; }
+  .hf-user .n { font-size:14px; font-weight:500; } .hf-user .r { font-size:12px; color:color-mix(in oklab, var(--sidebar-foreground) 50%, transparent); }
+  .hf-main { flex:1; position:relative; overflow:hidden; min-width:0; }
+  .hf-scroll { height:100%; overflow:auto; padding:28px 32px; }
+  .hf-h1 { font-size:24px; font-weight:700; letter-spacing:-.015em; margin:0; }
+  .hf-sub { color:var(--muted-foreground); font-size:14px; margin-top:4px; }
+  .hf-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:16px; margin-top:22px; }
+  .hf-course { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .hf-course .img { height:84px; background:var(--muted); }
+  .hf-course .b { padding:12px 14px; } .hf-course .t { font-weight:600; font-size:14px; } .hf-course .m { font-size:12px; color:var(--muted-foreground); margin-top:4px; }
+  .hf-nav-note { margin-top:16px; font-size:12px; color:var(--muted-foreground); }
+  .hf-bell { position:absolute; top:12px; right:16px; z-index:20; width:36px; height:36px; border-radius:999px; display:grid; place-items:center; cursor:pointer;
+    background:color-mix(in oklab, var(--background) 80%, transparent); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--border); box-shadow:0 1px 2px rgb(0 0 0 / .05); color:var(--foreground); transition:background-color 150ms ease; }
+  .hf-bell:hover, .hf-bell.on { background:var(--accent); }
+  .hf-bell svg.i { width:18px; height:18px; }
+  .hf-dot { position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:50%; background:var(--foreground); box-shadow:0 0 0 2px var(--background); }
+  .hf-dot.pop { animation:hfDot 180ms cubic-bezier(.23,1,.32,1); }
+  .hf-deck { position:absolute; top:56px; right:16px; width:340px; z-index:20; transform-origin:top right; }
+  .hf-deck.enter { animation:hfPop 200ms cubic-bezier(.23,1,.32,1); }
+  .hf-deck.leave { animation:hfPopOut 140ms ease-out forwards; }
+  .hf-deck.toast-in { animation:hfToast 400ms ease; }
+  .hf-deck.toast-out { animation:hfToastOut 300ms ease forwards; }
+  .hf-card { position:relative; background:var(--popover); border:1px solid var(--border); border-radius:14px; padding:14px 14px 12px; box-shadow:var(--shadow-card); }
+  .hf-segs { display:flex; gap:4px; margin:2px 36px 12px 0; height:3px; }
+  .hf-segs i { flex:1; border-radius:2px; background:color-mix(in oklab, var(--foreground) 14%, transparent); transition:background-color 200ms ease; }
+  .hf-segs i.on { background:var(--foreground); }
+  .hf-segs i.more { background:repeating-linear-gradient(90deg, color-mix(in oklab, var(--foreground) 24%, transparent) 0 3px, transparent 3px 6px); }
+  .hf-x { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:var(--muted-foreground); background:none; border:0; cursor:pointer; transition:background-color 150ms, color 150ms; }
+  .hf-x:hover, .hf-ib:hover { background:var(--accent); color:var(--foreground); }
+  .hf-content.in-right { animation:hfInR 180ms cubic-bezier(.23,1,.32,1); }
+  .hf-content.in-left { animation:hfInL 180ms cubic-bezier(.23,1,.32,1); }
+  .hf-content.in-up { animation:hfInU 220ms cubic-bezier(.23,1,.32,1); }
+  .hf-content.out { animation:hfOut 160ms ease-out forwards; }
+  .hf-body { display:flex; gap:12px; padding-right:24px; }
+  .hf-av { width:32px; height:32px; border-radius:50%; background:var(--muted); color:var(--foreground); font-size:12px; font-weight:600; display:grid; place-items:center; flex-shrink:0; }
+  .hf-text { font-size:14px; line-height:1.45; color:var(--muted-foreground); }
+  .hf-text b { color:var(--foreground); font-weight:600; }
+  .hf-time { font-size:12px; color:var(--muted-foreground); margin-top:3px; }
+  .hf-foot { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-left:38px; min-height:32px; }
+  .hf-flip { display:flex; gap:2px; }
+  .hf-ib { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; border:0; background:none; color:var(--muted-foreground); cursor:pointer; transition:background-color 150ms, color 150ms; }
+  .hf-last { font-size:12px; color:var(--muted-foreground); }
+  .hf-btn { height:32px; padding:0 12px; border-radius:8px; background:var(--primary); color:var(--primary-foreground); font:inherit; font-size:13px; font-weight:500; border:0; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity 150ms; }
+  .hf-btn:hover { opacity:.9; } .hf-btn:active { transform:scale(.97); }
+  .hf-btn.outline { background:var(--background); color:var(--foreground); border:1px solid var(--border); }
+  .hf-btn svg.i { width:14px; height:14px; }
+  .hf-all { display:flex; justify-content:flex-end; margin-top:8px; }
+  .hf-all span { font-size:12px; color:var(--muted-foreground); display:inline-flex; gap:4px; align-items:center; padding:4px 8px; border-radius:6px; cursor:pointer;
+    background:color-mix(in oklab, var(--background) 80%, transparent); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); transition:color 150ms; }
+  .hf-all span:hover { color:var(--foreground); } .hf-all svg.i { width:12px; height:12px; }
+  .hf-empty { text-align:center; padding:18px 14px; } .hf-empty b { font-size:14px; font-weight:600; display:block; } .hf-empty span { font-size:13px; color:var(--muted-foreground); }
+  .hf-pagehead { display:flex; justify-content:space-between; align-items:flex-end; padding-right:48px; }
+  .hf-tabs { display:flex; gap:20px; border-bottom:1px solid var(--border); margin:20px 0 4px; }
+  .hf-tab { padding:8px 0; font-size:14px; font-weight:500; color:var(--muted-foreground); border-bottom:2px solid transparent; margin-bottom:-1px; cursor:pointer; display:flex; gap:6px; align-items:center; transition:color 150ms; }
+  .hf-tab:hover { color:var(--foreground); } .hf-tab.on { color:var(--foreground); border-color:var(--foreground); }
+  .hf-badge { font-size:11px; background:var(--muted); color:var(--foreground); border-radius:999px; padding:1px 7px; font-weight:600; }
+  .hf-group { font-size:12px; font-weight:500; color:var(--muted-foreground); margin:16px 0 8px; }
+  .hf-list { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .hf-row { display:flex; gap:12px; align-items:center; padding:12px 16px; cursor:pointer; transition:background-color 150ms; }
+  .hf-row + .hf-row { border-top:1px solid var(--border); }
+  .hf-row:hover { background:var(--accent); }
+  .hf-row.unread { background:color-mix(in oklab, var(--muted) 70%, transparent); }
+  .hf-row .hf-text { flex:1; } .hf-row .hf-time { margin:0; flex-shrink:0; }
+  .hf-rdot { width:8px; height:8px; border-radius:50%; background:var(--foreground); flex-shrink:0; }
+  .hf-rdot.off { background:transparent; }
+  .hf-shots { display:grid; grid-template-columns:repeat(2, 780px); gap:36px 40px; margin-bottom:46px; }
+  .hf-cap { font-size:13px; color:#444; margin:0 0 10px; } .hf-cap b { margin-right:6px; }
+  .spec { font-size:12.5px; line-height:1.5; } .spec td { padding:2px 10px 2px 0; vertical-align:top; } .spec td:first-child { color:#7a6a20; white-space:nowrap; }
+  @keyframes hfPop { from { opacity:0; transform:scale(.95) translateY(-4px); } }
+  @keyframes hfPopOut { to { opacity:0; transform:scale(.97) translateY(-4px); } }
+  @keyframes hfToast { from { opacity:0; transform:translateY(-14px); } }
+  @keyframes hfToastOut { to { opacity:0; transform:translateY(-14px); } }
+  @keyframes hfInR { from { opacity:0; transform:translateX(10px); } }
+  @keyframes hfInL { from { opacity:0; transform:translateX(-10px); } }
+  @keyframes hfInU { from { opacity:0; transform:translateY(6px); } }
+  @keyframes hfOut { to { opacity:0; transform:translateX(16px); } }
+  @keyframes hfDot { from { transform:scale(0); } }
+  @media (prefers-reduced-motion: reduce) { .hf .hf-deck, .hf .hf-content, .hf .hf-dot { animation-duration:1ms !important; } }
+  .kbd { border:1.2px solid var(--mid); border-bottom-width:2px; border-radius:4px; padding:0 4px; font-size:9px; color:#555; }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button id="zout">−</button><span id="zlabel">100%</span><button id="zin">+</button>
+  <button id="fit">Fit</button><span style="color:#888;padding:0 6px">drag to pan · ctrl/⌘ + scroll to zoom</span>
+</div>
+<div id="viewport"><div id="canvas">
+  <h1>Cadence notifications: 5 low-fi iterations</h1>
+  <p class="lead">Brief: a free-floating trigger in the top-right of the content area, no header bar, no hard divider. Compact view stays quiet. "View all" opens a real, tabbed notifications page. Mock data is an Instructor's feed. Each row shows the compact state on the left and the expanded page on the right.</p>
+
+  <div class="principles">
+    <div class="sticky"><b>No hard divider under floating chrome</b>Fade a small blur or gradient where content meets the floating layer, only where they overlap. Fixes the "top portion divider looks odd" note.<div class="src">Brain: apple-design skill, §12 Materials and depth</div></div>
+    <div class="sticky"><b>Non-blocking panels: no scrim</b>Dim to focus, separate to keep flow. A parallel panel uses translucency and offset, not a dark overlay. Keeps the compact view unobtrusive.<div class="src">Brain: apple-design skill, §12</div></div>
+    <div class="sticky"><b>Panel grows out of the trigger</b>Popover scales from 0.95 at the trigger's corner (transform-origin), 150–250 ms, ease-out. Never from the centre or from nothing.<div class="src">Brain: animate skill + RECIPES "Dropdown, popover"</div></div>
+    <div class="sticky"><b>Toasts leave the way they came</b>Same edge in and out, about 400 ms with plain ease. Transitions, not keyframes, since several can fire in a second.<div class="src">Brain: animate RECIPES "Toast"</div></div>
+    <div class="sticky"><b>No pulsing badges</b>Infinite loops (pulsing badges, glowing dots) are the first motion to cut. A still dot or number is enough.<div class="src">Brain: remove-animations skill</div></div>
+    <div class="sticky"><b>Use Sonner headless</b><code>toast.custom()</code> keeps Sonner's stacking, swipe and hover-to-expand while we own the look. Cadence already ships Sonner.<div class="src">Brain: ask-sonner + pick-ui-library</div></div>
+  </div>
+
+  <div id="frames"></div>
+
+  <div class="round">
+    <div class="round-tag">Round 2 · moving forward</div>
+    <h1>Peek deck (from 4) + tabbed page (from 1)</h1>
+    <p class="lead">The compact view is a bell with a still dot and no count. Clicking it opens a cascading deck of unread notifications. Flip ‹ › between cards. Each card has one action, Open, plus an × that marks it read. "All notifications" opens the tabbed page from iteration 1. Still low-fi: we're checking how the two work together before high-fi.</p>
+    <div class="principles">
+      <div class="sticky"><b>Decided</b>Dot on the bell when anything is unread. No number. One action button per card: Open. × marks the card read and drops it from the deck. Expanded view is iteration 1's page.</div>
+      <div class="sticky"><b>Assumed: tell me if wrong</b>Open also marks the card read, then goes to the thing. Flipping doesn't mark anything read. Clicking outside or Esc closes the deck and changes nothing.</div>
+      <div class="sticky"><b>Proposed: new event toast</b>A new toast uses the same card, dropping out of the bell on its own (no deck behind), and hides after about 6 s. Then it lives in the deck. × on the toast marks it read too. One object, two moments.</div>
+      <div class="sticky"><b>Open questions</b>Deck order: newest first? Cap the deck (say 10) and send the rest to the page? Do × cards stay on the page's All tab as read (assumed yes)?</div>
+    </div>
+    <h2 class="sb-h">Storyboard</h2>
+    <div id="story" class="story"></div>
+    <h2 class="sb-h">Try it: click the bell, flip, ×, Open, All notifications</h2>
+    <div style="display:flex;gap:28px;align-items:flex-start">
+      <div id="live"></div>
+      <div class="sticky" style="width:240px;margin-top:30px"><b>Controls</b>‹ › or ← → flip · × marks read · Open marks read and "navigates" · All notifications opens the page · Esc closes · "Simulate event" fires a new-event toast.<div style="margin-top:8px"><button class="sim" data-act="sim">Simulate event</button> <button class="sim" data-act="reset">Reset</button></div></div>
+    </div>
+  </div>
+
+  <div class="round">
+    <div class="round-tag">Round 3 · the deck, flat</div>
+    <h1>Showing "more than one" without perspective</h1>
+    <p class="lead">No cards shrinking into the distance. Every idea stays flat and never shows an exact count: with 10 unread you only see "there's more", but as you clear down to the last few you can watch what's left shrink. The "1 of 3" text is gone too. Each row runs 10 unread → 3 left → 2 left → 1 left.</p>
+    <div class="principles">
+      <div class="sticky"><b>Rule for every idea</b>Show at most a few "more" markers. More than that and it looks the same as 10. Under the cap, each × visibly removes one marker. On the last card, no marker at all.</div>
+      <div class="sticky"><b>Arrows stay, numbers go</b>‹ › still flip. With one card left, the arrows disappear, which is itself the "last one" signal.</div>
+    </div>
+    <div id="r3"></div>
+    <h2 class="sb-h">Try them: pick an idea, then × your way through 10 unread</h2>
+    <div style="display:flex;gap:28px;align-items:flex-start">
+      <div id="live3"></div>
+      <div class="sticky" style="width:260px"><b>Controls</b>Pick an idea. × marks the top card read. ‹ › flip. Open marks read too. Reset puts 10 back.
+        <div id="r3pick" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px"></div>
+        <div style="margin-top:8px"><button class="r3btn" data-a3="reset">Reset to 10</button></div>
+        <div id="r3state" style="margin-top:8px;color:#7a6a20"></div></div>
+    </div>
+  </div>
+
+  <div class="round">
+    <div class="round-tag">Round 4 · low-fi for approval</div>
+    <h1>Segments deck + tabbed page, together</h1>
+    <p class="lead">Segments (idea D) folded into the round 2 design. The compact view is a bell with a still dot. Clicking it opens one flat card with a thin segment bar on top: one segment per unread card, at most 5, with a dotted last segment when there are more. × or Open marks the card read and takes away one segment. With one card left there's no bar and no arrows. "All notifications" opens the tabbed page from iteration 1.</p>
+    <div class="principles">
+      <div class="sticky"><b>Segments don't move by themselves</b>The bar never fills over time and cards never auto-advance. That's what keeps it from reading as a stories timer. The lit segment only moves when you flip.</div>
+      <div class="sticky"><b>New-event toast</b>Same card, no segment bar, dropping out of the bell and hiding after about 6 s. × on it marks it read. It then joins the deck.</div>
+      <div class="sticky"><b>Still assumed</b>Newest first. Open marks read. Flipping marks nothing read. Esc or clicking outside closes the deck. Cards closed with × show as read on the page's All tab.</div>
+    </div>
+    <h2 class="sb-h">Storyboard</h2>
+    <div id="story4" class="story"></div>
+    <h2 class="sb-h">Try it: the whole flow</h2>
+    <div style="display:flex;gap:28px;align-items:flex-start">
+      <div id="live4"></div>
+      <div class="sticky" style="width:240px;margin-top:30px"><b>Controls</b>Bell opens the deck · ‹ › or ← → flip · × marks read · Open marks read and "navigates" · All notifications opens the page · Esc closes.<div style="margin-top:8px"><button class="sim" data-a4="sim">Simulate event</button> <button class="sim" data-a4="reset">Reset</button></div><div id="s4state" style="margin-top:8px;color:#7a6a20"></div></div>
+    </div>
+  </div>
+
+  <div class="round">
+    <div class="round-tag">Round 5 · high fidelity</div>
+    <h1>High-fi: segments deck + tabbed page in Cadence's style</h1>
+    <p class="lead">Built on Cadence's own tokens from <code>app/app.css</code>: shadcn neutral palette, Inter, 10 px radius, the real sidebar. Light and dark. The unread dot stays neutral (foreground colour) to match Cadence's black-and-white look. Motion follows the rules from your Brain notes: the deck scales out of the bell, toasts leave the way they came in, and nothing pulses.</p>
+    <div class="hf-shots" id="hfshots"></div>
+    <h2 class="sb-h">Try it with real motion</h2>
+    <div style="display:flex;gap:28px;align-items:flex-start;margin-bottom:40px">
+      <div id="hflive"></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="sticky" style="width:300px"><b>Controls</b>Bell opens the deck · ‹ › or ← → flip · × marks read · Open marks read and "navigates" · All notifications opens the page · Esc closes.
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="sim" data-hf="sim">Simulate event</button><button class="sim" data-hf="theme">Light / dark</button><button class="sim" data-hf="reset">Reset</button></div>
+          <div id="hfstate" style="margin-top:8px;color:#7a6a20"></div></div>
+        <div class="sticky" style="width:300px"><b>Spec</b><table class="spec">
+          <tr><td>Bell</td><td>36 px round, 18 px icon, translucent fill + blur, 1 px border. No header bar.</td></tr>
+          <tr><td>Dot</td><td>8 px, foreground colour, 2 px background ring. Scales in once. Never pulses.</td></tr>
+          <tr><td>Card</td><td>340 px, 14 px radius, popover fill, soft shadow. 56 px below the top edge.</td></tr>
+          <tr><td>Segments</td><td>3 px tall, 4 px gaps, max 5, last dotted when more. Hidden on the last card.</td></tr>
+          <tr><td>Open</td><td>The only filled button. × and ‹ › are ghost icon buttons.</td></tr>
+          <tr><td>Deck in</td><td>scale .95 → 1 from top-right, 200 ms, ease-out (.23,1,.32,1).</td></tr>
+          <tr><td>Flip</td><td>Content slides 10 px in from the flip side, 180 ms.</td></tr>
+          <tr><td>×</td><td>Card content slides right and fades, 160 ms. Next one rises 6 px.</td></tr>
+          <tr><td>Toast</td><td>Drops 14 px from the bell, 400 ms ease. Leaves the same way after 6 s.</td></tr>
+          <tr><td>Reduced motion</td><td>Animations collapse to instant.</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+const N = [
+  { t:'<b>Emma Wilson</b> commented on <b>Loaders</b> in <b>React Router</b>', time:'4m', u:1, k:'Comments', act:1 },
+  { t:'<b>Liam Patel</b> enrolled on <b>React Router</b>', time:'38m', u:1, k:'Sales and Seats' },
+  { t:'<b>Noah Kim</b> enrolled on <b>TypeScript</b> through a Team Licence', time:'1h', u:1, k:'Sales and Seats' },
+  { t:'<b>Ava Jones</b> bought a Team Licence for <b>10 Seats</b> on <b>TypeScript</b>', time:'5h', u:0, k:'Sales and Seats' },
+  { t:'<b>Mia Lopez</b> replied to your comment on <b>Actions</b>', time:'1d', u:0, k:'Comments' },
+  { t:'<b>Olu Ade</b> commented on <b>Forms</b> in <b>React Router</b>', time:'3d', u:0, k:'Comments', act:1 },
+];
+const side = (active) => `<div class="side"><div class="logo">Cadence</div>
+  ${[0,1,2,3,4].map(i=>`<div class="bar ${i===active?'dk':''}" style="width:${70+((i*13)%25)}%"></div>`).join('')}
+  <div style="flex:1"></div><div class="bar" style="width:60%"></div></div>`;
+const filler = `<div class="ph-title"></div><div class="ph-row"><div class="ph-card"></div><div class="ph-card"></div><div class="ph-card"></div></div>
+  <div class="ph-row"><div class="ph-card"></div><div class="ph-card"></div></div>`;
+const app = (inner, {muted=false, active=1}={}) => `<div class="app">${side(active)}<div class="main ${muted?'muted':''}">${inner}</div></div>`;
+const item = (n) => `<div class="item ${n.u?'unread':''}"><span class="av"></span><span>${n.t}</span><span class="t">${n.time}</span></div>`;
+const row = (n) => `<div class="row ${n.u?'unread':''}"><span class="av"></span><span>${n.t}</span><span class="t">${n.time}</span>${n.u?'<span class="dot"></span>':''}</div>`;
+const pill = (extra='') => `<span class="pill"><span class="bell"></span><span class="count">3</span>${extra}</span>`;
+const tabs = (list, on, cls='') => `<div class="tabs">${list.map((t,i)=>`<span class="tab ${cls} ${i===on?'on':''}">${t}</span>`).join('')}</div>`;
+const shot = (cap, html) => `<div class="shot"><div class="cap">${cap}</div>${html}</div>`;
+
+const frames = [
+  {
+    name:'Floating pill', blurb:'The pill you liked, cleaned up. Translucent, no header strip. Popover drops from the pill with no divider: spacing and a bottom fade do the separating.',
+    pros:'Closest to what you liked. Cheapest to build.', cons:'Count is always visible, so it can nag on busy courses.',
+    compact: app(filler + `<div class="float">${pill()}<span class="origin"></span>
+      <div class="pop"><div class="hd"><b>Notifications</b><span class="link">Mark all read</span></div>
+      ${N.slice(0,4).map(item).join('')}<div class="fade"></div><div class="foot"><span class="link">View all notifications →</span></div></div>
+      <span class="arrow-note" style="right:62px;top:2px">scales from here</span></div>`, {muted:true}),
+    page: app(`<div class="float">${pill()}</div><div class="page-h"><b>Notifications</b><span class="link">Mark all read</span></div>
+      ${tabs(['All','Unread 3','Comments','Sales and Seats'],0,'under')}
+      <div class="group">Today</div>${N.slice(0,4).map(row).join('')}<div class="group">Earlier</div>${N.slice(4,5).map(row).join('')}`),
+  },
+  {
+    name:'Quiet dot', blurb:'Most unobtrusive. Bare bell, no number, one still dot when something is unread. Compact view splits by intent: what needs you first, then a one-line count of updates.',
+    pros:'Calmest resting state. "Needs you" maps onto the toast rule (act on it, or answer you were waiting for).', cons:'No count means no sense of volume until you open it.',
+    compact: app(filler + `<div class="float"><span class="pill" style="border-color:transparent;background:none"><span class="bell"></span><span class="dot" style="margin-left:-6px;margin-top:-8px"></span></span>
+      <div class="pop" style="width:240px"><div class="hd"><b>Needs you</b><span class="link">1</span></div>${item(N[0])}
+      <div class="hd" style="margin-top:8px"><b style="font-size:11px;color:#555">2 updates</b><span class="link">Liam, Noah enrolled</span></div>
+      <div class="foot" style="padding-top:8px"><span class="link">Open notifications →</span></div></div></div>`, {muted:true}),
+    page: app(`<div class="float"><span class="bell"></span></div><div class="page-h"><b>Notifications</b><span class="link">Mark all read</span></div>
+      ${tabs(['Needs you 1','Updates 2','All'],0)}
+      ${[N[0],N[5]].map(row).join('')}<div style="font-size:10px;color:#888;padding:10px 4px">Comments wait here until you answer them in Questions.</div>`),
+  },
+  {
+    name:'Toast-born stack', blurb:'The pill is home base for toasts. New toasts drop out of the pill and, when they time out, tuck back into it as a stacked deck. Hover the deck to fan it out (Sonner expand).',
+    pros:'One place for everything; toasts and feed feel like the same object.', cons:'Toasts at the top-right sit over page actions. Needs a quick dismiss.',
+    compact: app(filler + `<div class="float">${pill()}
+      <div class="toast" style="right:0;top:32px;z-index:3">${N[0].t}<div style="margin-top:5px"><span class="btn pri">Open</span> <span class="btn">Dismiss</span></div></div>
+      <div class="toast" style="right:-6px;top:40px;width:242px;height:58px;z-index:2;opacity:.7"></div>
+      <div class="toast" style="right:-12px;top:48px;width:254px;height:58px;z-index:1;opacity:.45"></div>
+      <span class="arrow-note" style="right:250px;top:46px;width:120px;text-align:right">new toast drops out of the pill, tucks back in</span></div>`, {muted:true}),
+    page: app(`<div class="float">${pill()}</div><div class="page-h"><b>Notifications</b><span class="link">Mark all read</span></div>
+      ${tabs(['Unread 3','All'],0)}
+      <div style="display:flex;gap:4px;margin-bottom:6px"><span class="chip on">Everything</span><span class="chip">Comments</span><span class="chip">Sales and Seats</span></div>
+      ${N.slice(0,3).map(row).join('')}`),
+  },
+  {
+    name:'Peek card', blurb:'Clicking the pill shows just one thing: the newest unread, with "1 of 3" to step through. Everything else lives on the page, which uses vertical tabs with counts.',
+    pros:'Smallest compact footprint while still showing real content.', cons:'Stepping one at a time is slow if you have 10 unread.',
+    compact: app(filler + `<div class="float">${pill()}
+      <div class="pop" style="width:250px"><div style="display:flex;justify-content:space-between;color:#888;font-size:9.5px;margin-bottom:4px"><span>1 of 3 unread</span><span>‹ ›</span></div>
+      ${item(N[0])}<div style="display:flex;gap:5px;margin-top:6px"><span class="btn pri">Open</span><span class="btn">Mark read</span><span class="link" style="margin-left:auto;align-self:center">All →</span></div></div></div>`, {muted:true}),
+    page: app(`<div style="display:flex;gap:14px;height:100%"><div style="width:96px;font-size:10.5px;display:flex;flex-direction:column;gap:3px">
+      <b style="font-size:13px;margin-bottom:6px">Inbox</b>
+      ${[['All',6],['Unread',3],['Comments',3],['Sales and Seats',3]].map(([l,c],i)=>`<div class="row" style="padding:4px 6px;${i===1?'background:var(--wash);color:var(--ink);font-weight:700':''}">${l}<span class="t">${c}</span></div>`).join('')}
+      </div><div style="flex:1">${N.slice(0,3).map(row).join('')}</div></div>`),
+  },
+  {
+    name:'Morphing island', blurb:'The pill itself grows into the panel: same surface, same corner, like a dynamic island. Tabs live inside the compact view, so you rarely need the page, but it is one click (or the N key) away.',
+    pros:'Feels most "free-floating"; no second object appears.', cons:'Most motion work; tabs in two places can drift apart.',
+    compact: app(filler + `<div class="float"><div class="pop" style="top:-2px;width:270px;border-radius:16px">
+      <div class="hd"><span style="display:flex;gap:6px;align-items:center"><span class="bell"></span><b>3 new</b></span><span class="kbd">N</span></div>
+      ${tabs(['Unread','All'],0)}${N.slice(0,3).map(item).join('')}<div class="fade"></div>
+      <div class="foot"><span class="link">Open full page ↗</span></div></div>
+      <span class="arrow-note" style="right:280px;top:10px;width:110px;text-align:right">pill grows in place, top-right corner pinned</span></div>`, {muted:true}),
+    page: app(`<div class="float">${pill()}</div><div class="page-h"><b>Notifications</b><span style="display:flex;gap:6px;align-items:center"><span class="chip">Search</span><span class="link">Mark all read</span></span></div>
+      ${tabs(['Unread 3','All','Archived'],0,'under')}
+      <div class="group">Today</div>${N.slice(0,3).map(row).join('')}`),
+  },
+];
+
+document.getElementById('frames').innerHTML = frames.map((f,i)=>`<div class="frame">
+  <div class="frame-label"><div class="num">${i+1}</div><div class="name">${f.name}</div><p>${f.blurb}</p>
+  <p><b>+</b> ${f.pros}</p><p><b>−</b> ${f.cons}</p></div>
+  ${shot('compact (popover open)', f.compact)}${shot('expanded: the page', f.page)}</div>`).join('');
+
+/* ---------- round 2: peek deck + tabbed page ---------- */
+const bellHTML = (dot, on) => `<span class="bellbtn ${on?'on':''}" data-act="bell"><span class="bell"></span>${dot?'<span class="dot bdot"></span>':''}</span>`;
+const cardInner = (n, idx, len, {flip=true}={}) => `<button class="x" data-act="x" title="Mark read">×</button>
+  ${item(n)}<div class="cardfoot">${flip ? `<span class="flip"><button class="flipb" data-act="prev">‹</button>${idx+1} of ${len}<button class="flipb" data-act="next">›</button></span>` : '<span class="flip">new · hides in 6 s</span>'}
+  <span class="btn pri" data-act="open">Open</span></div>`;
+function deckHTML(unread, idx) {
+  if (!unread.length) return `<div class="deck"><div class="card" style="position:relative;height:auto;text-align:center;color:#777;padding:14px">You're all caught up
+    <div style="margin-top:6px"><span class="link" data-act="all" style="cursor:pointer">All notifications →</span></div></div></div>`;
+  const behind = Math.min(2, unread.length - 1);
+  const backs = Array.from({length: behind}, (_, i) => `<div class="card behind" style="top:${(i+1)*8}px;z-index:${2-i};transform:scale(${1-(i+1)*0.05});opacity:${0.75-i*0.25}"></div>`).reverse().join('');
+  return `<div class="deck"><div style="position:relative;height:${84+behind*8}px">${backs}
+    <div class="card" style="top:0;z-index:3">${cardInner(unread[idx], idx, unread.length)}</div></div>
+    <div class="decklink"><span class="link" data-act="all" style="cursor:pointer">All notifications →</span></div></div>`;
+}
+const toastHTML = (n) => `<div class="deck"><div style="position:relative;height:84px"><div class="card" style="top:0;z-index:3">${cardInner(n, 0, 1, {flip:false})}</div></div></div>`;
+const crop = (inner) => `<div class="crop">${'<div class="ph-title"></div><div class="ph-row"><div class="ph-card"></div><div class="ph-card"></div></div><div class="ph-row"><div class="ph-card"></div></div>'}${inner}</div>`;
+const U = N.filter(n => n.u);
+const story = [
+  ['1', 'Resting, all read', 'Bare bell. Nothing to say, so it says nothing.', crop(bellHTML(false))],
+  ['2', 'Resting, something unread', 'Still dot on top of the bell. No number, no pulse.', crop(bellHTML(true))],
+  ['3', 'New event arrives (proposed)', 'Same card drops out of the bell on its own, then hides. Dot stays. It now waits in the deck.', crop(bellHTML(true) + toastHTML(U[0]) + '<span class="note-arrow" style="right:120px;top:12px">drops from the bell</span>')],
+  ['4', 'Click the bell', 'Deck cascades out of the bell: newest card on top, the rest peek behind.', crop(bellHTML(true, true) + deckHTML(U, 0))],
+  ['5', 'Flip ›', 'Card 2 of 3. Looking at it does not mark it read.', crop(bellHTML(true, true) + deckHTML(U, 1))],
+  ['6', 'Press × on card 2', 'Card 2 is marked read and leaves the deck. The next one slides up: 2 of 2.', crop(bellHTML(true, true) + deckHTML([U[0], U[2]], 1))],
+  ['7', 'Press Open', 'Marks it read (assumed), closes the deck, goes to the thing.', crop(bellHTML(true) + '<span class="note-arrow" style="left:20px;top:200px">→ /instructor/questions</span>')],
+  ['8', '× the last card', 'Deck says you\'re caught up. Dot is gone. Link to the page stays.', crop(bellHTML(false, true) + deckHTML([], 0))],
+];
+document.getElementById('story').innerHTML = story.map(([n, title, why, html]) =>
+  `<div class="step"><div class="cap"><b>${n}</b>${title}</div>${html}<div class="why">${why}</div></div>`).join('');
+
+/* live, clickable version */
+const LIVE_TABS = ['All', 'Unread', 'Comments', 'Sales and Seats'];
+const POOL = [
+  { t:'<b>Zoe Hart</b> commented on <b>Errors</b> in <b>React Router</b>', k:'Comments' },
+  { t:'<b>Sam Rivera</b> enrolled on <b>TypeScript</b>', k:'Sales and Seats' },
+];
+let L;
+function resetLive() { L = { items: N.map((n, i) => ({...n, id:i})), open:false, idx:0, view:'app', tab:0, toast:null, last:'', poolN:0 }; }
+resetLive();
+const unreadL = () => L.items.filter(n => n.u);
+function liveMain() {
+  if (L.view === 'app') return filler + `<div style="margin-top:18px;font-size:11px;color:#888">${L.last}</div>`;
+  const shown = L.items.filter(n => L.tab === 0 || (L.tab === 1 ? n.u : n.k === LIVE_TABS[L.tab]));
+  const today = shown.filter(n => !/d$/.test(n.time)), earlier = shown.filter(n => /d$/.test(n.time));
+  const unreadCount = unreadL().length;
+  const rows = (list) => list.map(n => `<div class="row click ${n.u?'unread':''}" data-act="row" data-id="${n.id}"><span class="av"></span><span>${n.t}</span><span class="t">${n.time}</span>${n.u?'<span class="dot"></span>':''}</div>`).join('');
+  return `<div class="page-h"><b>Notifications</b><span class="link" data-act="allread" style="cursor:pointer;margin-right:40px">Mark all read</span></div>
+    <div class="tabs">${LIVE_TABS.map((t, i) => `<span class="tab under click ${i===L.tab?'on':''}" data-act="tab" data-i="${i}">${t}${i===1&&unreadCount?' '+unreadCount:''}</span>`).join('')}</div>
+    ${today.length ? '<div class="group">Today</div>' + rows(today) : ''}${earlier.length ? '<div class="group">Earlier</div>' + rows(earlier) : ''}
+    ${shown.length ? '' : '<div style="font-size:11px;color:#888;padding:16px 4px">Nothing here.</div>'}`;
+}
+function renderLive() {
+  const u = unreadL();
+  if (L.idx >= u.length) L.idx = Math.max(0, u.length - 1);
+  let overlay = bellHTML(u.length > 0, L.open);
+  if (L.open) overlay += deckHTML(u, L.idx);
+  else if (L.toast) overlay += toastHTML(L.toast);
+  document.getElementById('live').innerHTML = `<div class="app">${side(L.view === 'page' ? -1 : 1)}<div class="main" style="position:relative">${liveMain()}${overlay}</div></div>`;
+}
+function markRead(id) { const n = L.items.find(x => x.id === id); if (n) n.u = 0; }
+function go(n) { markRead(n.id); L.open = false; L.toast = null; L.view = 'app'; L.last = `Navigated to the thing behind: ${n.t.replace(/<[^>]+>/g, '')}`; }
+let toastTimer;
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  const inLive = e.target.closest('#live');
+  if (!el) { if (inLive && L.open && !e.target.closest('.deck')) { L.open = false; renderLive(); } return; }
+  const act = el.dataset.act;
+  if (!inLive && act !== 'sim' && act !== 'reset') return;
+  const u = unreadL();
+  if (act === 'bell') { L.open = !L.open; L.toast = null; L.idx = 0; }
+  else if (act === 'prev') L.idx = (L.idx - 1 + u.length) % u.length;
+  else if (act === 'next') L.idx = (L.idx + 1) % u.length;
+  else if (act === 'x') { if (L.toast) { markRead(L.toast.id); L.toast = null; } else if (u[L.idx]) markRead(u[L.idx].id); }
+  else if (act === 'open') go(L.toast || u[L.idx]);
+  else if (act === 'all') { L.open = false; L.view = 'page'; }
+  else if (act === 'tab') L.tab = +el.dataset.i;
+  else if (act === 'row') go(L.items.find(x => x.id === +el.dataset.id));
+  else if (act === 'allread') L.items.forEach(n => n.u = 0);
+  else if (act === 'reset') resetLive();
+  else if (act === 'sim') {
+    const p = POOL[L.poolN++ % POOL.length];
+    const n = { ...p, time:'now', u:1, id: 100 + L.poolN };
+    L.items.unshift(n);
+    if (!L.open) { L.toast = n; clearTimeout(toastTimer); toastTimer = setTimeout(() => { L.toast = null; renderLive(); }, 6000); }
+  }
+  renderLive();
+});
+document.addEventListener('keydown', (e) => {
+  if (!L.open) return;
+  const u = unreadL(); if (!u.length && e.key !== 'Escape') return;
+  if (e.key === 'ArrowLeft') L.idx = (L.idx - 1 + u.length) % u.length;
+  else if (e.key === 'ArrowRight') L.idx = (L.idx + 1) % u.length;
+  else if (e.key === 'Escape') L.open = false;
+  else return;
+  renderLive();
+});
+renderLive();
+
+/* ---------- round 3: flat ways to show "more than one" ---------- */
+const R3IDEAS = [
+  { key:'A', name:'Ledge', blurb:'Flat card edges stacked straight down, same width, no shrinking. Up to 2 ledges. Reads like a neat pile of paper.', pro:'Closest to the deck you liked, minus the perspective.', con:'Only says "2+" vs "1 more" vs "none".' },
+  { key:'B', name:'Side tabs', blurb:'Cards behind peek out to the left, flat and full height. Ties to the ‹ › flip direction: the pile sits where you flip to.', pro:'Reinforces flipping sideways.', con:'Eats horizontal space; left edges can collide with page content.' },
+  { key:'C', name:'Dots', blurb:'No pile. A row of carousel dots in the card footer, capped at 5. Past 5, the end dots shrink to say "and more" (Instagram style).', pro:'Calmest and smallest. Each × visibly removes a dot.', con:'Dots read as position, not as "unread left", until you learn them.' },
+  { key:'D', name:'Segments', blurb:'A thin segmented bar across the top of the card, like stories. Up to 5 segments; past 5 the last one is dotted for "more".', pro:'Reads as progress: clearing feels like getting through a queue.', con:'Can feel like a timer or that items auto-advance.' },
+  { key:'E', name:'Underline bars', blurb:'Short flat bars tucked under the card, one per extra card, capped at 3. Thinner than a ledge, so it\'s quieter.', pro:'Clear countdown under the cap; very low visual weight.', con:'Small target; may be missed at a glance.' },
+];
+const BIG = Array.from({length:10}, (_, i) => ({ ...N[i % N.length], id: 200 + i, u:1, time: ['4m','12m','38m','1h','2h','3h','5h','8h','1d','2d'][i] }));
+function card3(n, len, {back=false, extra=''}={}) {
+  if (back) return '';
+  const arrows = len > 1 ? '<span class="flip"><button class="flipb" data-a3="prev">‹</button><button class="flipb" data-a3="next">›</button></span>' : '<span class="flip" style="color:#aaa">last one</span>';
+  return `<button class="x" data-a3="x" title="Mark read">×</button>${extra}${item(n)}<div class="c3foot">${arrows}<span class="btn pri" data-a3="open">Open</span></div>`;
+}
+function deck3(style, list, idx) {
+  const len = list.length;
+  if (!len) return `<div class="d3"><div class="c3" style="position:relative;height:auto;text-align:center;color:#777;padding:12px">You're all caught up</div></div>`;
+  const n = list[idx % len], extra = len - 1;
+  if (style === 'A') {
+    const k = Math.min(2, extra);
+    const backs = Array.from({length:k}, (_, i) => `<div class="c3 back" style="top:${(i+1)*6}px;z-index:${2-i}"></div>`).reverse().join('');
+    return `<div class="d3"><div style="position:relative;height:${78+k*6}px">${backs}<div class="c3" style="z-index:3">${card3(n, len)}</div></div></div>`;
+  }
+  if (style === 'B') {
+    const k = Math.min(2, extra);
+    const backs = Array.from({length:k}, (_, i) => `<div class="c3 back" style="left:${-(i+1)*7}px;right:${(i+1)*7}px;z-index:${2-i}"></div>`).reverse().join('');
+    return `<div class="d3"><div style="position:relative;height:78px">${backs}<div class="c3" style="z-index:3">${card3(n, len)}</div></div></div>`;
+  }
+  if (style === 'C') {
+    const shown = Math.min(len, 5), cur = Math.min(idx % len, shown - 1);
+    const dots = Array.from({length:shown}, (_, i) => `<i class="${i===cur?'on':''} ${len>5 && i===shown-1?'sm':''}"></i>`).join('');
+    const arrows = len > 1 ? `<span class="flip"><button class="flipb" data-a3="prev">‹</button><span class="pdots">${dots}</span><button class="flipb" data-a3="next">›</button></span>` : '<span class="flip" style="color:#aaa">last one</span>';
+    return `<div class="d3"><div style="position:relative;height:78px"><div class="c3" style="z-index:3"><button class="x" data-a3="x" title="Mark read">×</button>${item(n)}<div class="c3foot">${arrows}<span class="btn pri" data-a3="open">Open</span></div></div></div></div>`;
+  }
+  if (style === 'D') {
+    const shown = Math.min(len, 5), cur = Math.min(idx % len, shown - 1);
+    const segs = len > 1 ? `<div class="segs">${Array.from({length:shown}, (_, i) => `<i class="${i===cur?'on':''} ${len>5 && i===shown-1?'more':''}"></i>`).join('')}</div>` : '';
+    return `<div class="d3"><div style="position:relative;height:78px"><div class="c3" style="z-index:3;padding-top:13px">${card3(n, len, {extra:segs})}</div></div></div>`;
+  }
+  const k = Math.min(3, extra);
+  const bars = Array.from({length:k}, (_, i) => `<div style="height:3px;border-radius:2px;background:#bdbdbd;margin:3px ${18+i*0}px 0"></div>`).join('');
+  return `<div class="d3"><div style="position:relative;height:78px"><div class="c3" style="z-index:3">${card3(n, len)}</div></div>${bars}</div>`;
+}
+const fill3 = '<div class="ph-title"></div><div class="ph-row"><div class="ph-card"></div><div class="ph-card"></div></div>';
+const crop3 = (inner) => `<div class="crop3">${fill3}${bellHTML(true, true)}${inner}</div>`;
+document.getElementById('r3').innerHTML = R3IDEAS.map(I => `<div class="r3row">
+  <div class="r3label"><div class="lt">${I.key}</div><div class="nm">${I.name}</div>${I.blurb}<div style="margin-top:6px"><b>+</b> ${I.pro}</div><div><b>−</b> ${I.con}</div></div>
+  ${[[10,'10 unread'],[3,'3 left'],[2,'2 left'],[1,'1 left']].map(([c, lab]) => `<div class="step"><div class="cap">${lab}</div>${crop3(deck3(I.key, BIG.slice(0, c), 0))}</div>`).join('')}
+</div>`).join('');
+
+let R3 = { style:'A', list: BIG.map(x => ({...x})), idx:0, last:'' };
+function renderR3() {
+  if (R3.idx >= R3.list.length) R3.idx = 0;
+  document.getElementById('live3').innerHTML = `<div class="crop3" style="width:420px;height:230px">${fill3}${bellHTML(R3.list.length > 0, true)}${deck3(R3.style, R3.list, R3.idx)}</div>`;
+  document.getElementById('r3pick').innerHTML = R3IDEAS.map(I => `<button class="r3btn ${I.key===R3.style?'on':''}" data-a3="style" data-k="${I.key}">${I.key} ${I.name}</button>`).join('');
+  document.getElementById('r3state').textContent = `${R3.list.length} unread left (hidden from the UI on purpose)${R3.last ? ' · ' + R3.last : ''}`;
+}
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-a3]'); if (!el) return;
+  const a = el.dataset.a3, len = R3.list.length;
+  if (a === 'style') R3.style = el.dataset.k;
+  else if (a === 'reset') { R3.list = BIG.map(x => ({...x})); R3.idx = 0; R3.last = ''; }
+  else if (a === 'prev' && len) R3.idx = (R3.idx - 1 + len) % len;
+  else if (a === 'next' && len) R3.idx = (R3.idx + 1) % len;
+  else if ((a === 'x' || a === 'open') && len) { R3.list.splice(R3.idx % len, 1); R3.last = a === 'open' ? 'opened and marked read' : 'marked read'; }
+  renderR3();
+});
+renderR3();
+
+/* ---------- round 4: segments deck + tabbed page ---------- */
+const bell4 = (dot, on) => bellHTML(dot, on).replace('data-act="bell"', 'data-a4="bell"');
+const deck4 = (list, idx) => !list.length
+  ? deck3('D', list, idx).replace('You\'re all caught up', 'You\'re all caught up<div style="margin-top:6px"><span class="link" data-a4="all" style="cursor:pointer">All notifications →</span></div>')
+  : deck3('D', list, idx).replaceAll('data-a3=', 'data-a4=')
+  .replace(/<\/div><\/div><\/div>$/, '</div></div><div class="decklink"><span class="link" data-a4="all" style="cursor:pointer">All notifications →</span></div></div>');
+const toast4 = (n) => `<div class="d3"><div style="position:relative;height:78px"><div class="c3" style="z-index:3"><button class="x" data-a4="x" title="Mark read">×</button>${item(n)}<div class="c3foot"><span class="flip" style="color:#aaa">new · hides in 6 s</span><span class="btn pri" data-a4="open">Open</span></div></div></div></div>`;
+const crop4 = (inner) => `<div class="crop">${'<div class="ph-title"></div><div class="ph-row"><div class="ph-card"></div><div class="ph-card"></div></div><div class="ph-row"><div class="ph-card"></div></div>'}${inner}</div>`;
+const FOUR = BIG.slice(0, 4), SEVEN = BIG.slice(0, 7);
+const story4 = [
+  ['1', 'Resting, something unread', 'Still dot on the bell. No count.', crop4(bell4(true))],
+  ['2', 'New event arrives', 'Same card, no bar, drops out of the bell, hides after 6 s.', crop4(bell4(true) + toast4(BIG[0]))],
+  ['3', 'Open the deck, 7 unread', '5 segments, the last one dotted: "more than this". First is lit.', crop4(bell4(true, true) + deck4(SEVEN, 0))],
+  ['4', 'Open the deck, 4 unread', '4 segments. Under the cap, the bar is an honest countdown.', crop4(bell4(true, true) + deck4(FOUR, 0))],
+  ['5', 'Flip ›', 'Second segment lit. Nothing marked read.', crop4(bell4(true, true) + deck4(FOUR, 1))],
+  ['6', 'Press ×', 'Card read and gone. One segment fewer: 3 left.', crop4(bell4(true, true) + deck4(FOUR.slice(1), 0))],
+  ['7', 'Last card', 'No bar, no arrows: "last one". Only × and Open.', crop4(bell4(true, true) + deck4(FOUR.slice(3), 0))],
+  ['8', 'Caught up', 'Dot gone. Link to the page stays.', crop4(bell4(false, true) + deck4([], 0))],
+];
+document.getElementById('story4').innerHTML = story4.map(([n, title, why, html]) =>
+  `<div class="step"><div class="cap"><b>${n}</b>${title}</div>${html}<div class="why">${why}</div></div>`).join('');
+
+let S4;
+function reset4() { S4 = { items: BIG.slice(0, 7).map((n, i) => ({ ...n, id: 300 + i, u:1, k: N[i % N.length].k, time: ['4m','12m','38m','1h','5h','1d','3d'][i] })).concat(N.slice(3).map((n, i) => ({ ...n, id: 400 + i, u:0 }))), open:false, idx:0, view:'app', tab:0, toast:null, last:'', poolN:0 }; }
+reset4();
+const unread4 = () => S4.items.filter(n => n.u);
+function main4() {
+  if (S4.view === 'app') return filler + `<div style="margin-top:18px;font-size:11px;color:#888">${S4.last}</div>`;
+  const shown = S4.items.filter(n => S4.tab === 0 || (S4.tab === 1 ? n.u : n.k === LIVE_TABS[S4.tab]));
+  const today = shown.filter(n => !/d$/.test(n.time)), earlier = shown.filter(n => /d$/.test(n.time));
+  const rows = (list) => list.map(n => `<div class="row click ${n.u?'unread':''}" data-a4="row" data-id="${n.id}"><span class="av"></span><span>${n.t}</span><span class="t">${n.time}</span>${n.u?'<span class="dot"></span>':''}</div>`).join('');
+  return `<div class="page-h"><b>Notifications</b><span class="link" data-a4="allread" style="cursor:pointer;margin-right:40px">Mark all read</span></div>
+    <div class="tabs">${LIVE_TABS.map((t, i) => `<span class="tab under click ${i===S4.tab?'on':''}" data-a4="tab" data-i="${i}">${t}</span>`).join('')}</div>
+    ${today.length ? '<div class="group">Today</div>' + rows(today) : ''}${earlier.length ? '<div class="group">Earlier</div>' + rows(earlier) : ''}
+    ${shown.length ? '' : '<div style="font-size:11px;color:#888;padding:16px 4px">Nothing here.</div>'}`;
+}
+function render4() {
+  const u = unread4();
+  if (S4.idx >= u.length) S4.idx = 0;
+  let overlay = bell4(u.length > 0, S4.open);
+  if (S4.open) overlay += deck4(u, S4.idx); else if (S4.toast) overlay += toast4(S4.toast);
+  document.getElementById('live4').innerHTML = `<div class="app" style="width:780px;height:480px">${side(S4.view === 'page' ? -1 : 1)}<div class="main" style="position:relative;overflow:auto">${main4()}${overlay}</div></div>`;
+  document.getElementById('s4state').textContent = `${u.length} unread (not shown in the UI)`;
+}
+function read4(id) { const n = S4.items.find(x => x.id === id); if (n) n.u = 0; }
+function go4(n) { if (!n) return; read4(n.id); S4.open = false; S4.toast = null; S4.view = 'app'; S4.last = `Navigated to the thing behind: ${n.t.replace(/<[^>]+>/g, '')}`; }
+let t4;
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-a4]'), inLive = e.target.closest('#live4');
+  if (!el) { if (inLive && S4.open && !e.target.closest('.d3')) { S4.open = false; render4(); } return; }
+  const a = el.dataset.a4, u = unread4();
+  if (a === 'bell') { S4.open = !S4.open; S4.toast = null; S4.idx = 0; }
+  else if (a === 'prev' && u.length) S4.idx = (S4.idx - 1 + u.length) % u.length;
+  else if (a === 'next' && u.length) S4.idx = (S4.idx + 1) % u.length;
+  else if (a === 'x') { if (S4.toast) { read4(S4.toast.id); S4.toast = null; } else if (u[S4.idx]) read4(u[S4.idx].id); }
+  else if (a === 'open') go4(S4.toast || u[S4.idx]);
+  else if (a === 'all') { S4.open = false; S4.view = 'page'; }
+  else if (a === 'tab') S4.tab = +el.dataset.i;
+  else if (a === 'row') go4(S4.items.find(x => x.id === +el.dataset.id));
+  else if (a === 'allread') S4.items.forEach(n => n.u = 0);
+  else if (a === 'reset') reset4();
+  else if (a === 'sim') {
+    const p = POOL[S4.poolN++ % POOL.length], n = { ...p, time:'now', u:1, id: 500 + S4.poolN };
+    S4.items.unshift(n);
+    if (!S4.open) { S4.toast = n; clearTimeout(t4); t4 = setTimeout(() => { S4.toast = null; render4(); }, 6000); }
+  }
+  render4();
+});
+document.addEventListener('keydown', (e) => {
+  if (!S4.open) return;
+  const u = unread4();
+  if (e.key === 'Escape') S4.open = false;
+  else if (!u.length) return;
+  else if (e.key === 'ArrowLeft') S4.idx = (S4.idx - 1 + u.length) % u.length;
+  else if (e.key === 'ArrowRight') S4.idx = (S4.idx + 1) % u.length;
+  else return;
+  render4();
+});
+render4();
+
+/* ---------- round 5: high fidelity ---------- */
+const IC = {
+  bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+  arrow:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>', check:'<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>',
+  book:'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  cap:'<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+  chart:'<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+};
+const ic = (k) => `<svg class="i" viewBox="0 0 24 24">${IC[k]}</svg>`;
+const initials = (t) => t.replace(/<[^>]+>/g, '|').split('|').filter(Boolean)[0].split(' ').map(w => w[0]).join('').slice(0, 2);
+const HF_ITEMS = [
+  { t:'<b>Emma Wilson</b> commented on <b>Loaders</b> in <b>React Router</b>', time:'4 minutes ago', k:'Comments', day:0 },
+  { t:'<b>Liam Patel</b> enrolled on <b>React Router</b>', time:'38 minutes ago', k:'Sales and Seats', day:0 },
+  { t:'<b>Noah Kim</b> enrolled on <b>TypeScript Deep Dive</b> through a Team Licence', time:'1 hour ago', k:'Sales and Seats', day:0 },
+  { t:'<b>Ava Jones</b> bought a Team Licence for <b>10 Seats</b> on <b>TypeScript Deep Dive</b>', time:'5 hours ago', k:'Sales and Seats', day:0 },
+  { t:'<b>Mia Lopez</b> replied to your comment on <b>Actions</b>', time:'7 hours ago', k:'Comments', day:0 },
+  { t:'<b>Olu Ade</b> commented on <b>Forms</b> in <b>React Router</b>', time:'Yesterday', k:'Comments', day:1 },
+  { t:'<b>Priya Shah</b> enrolled on <b>TypeScript Deep Dive</b>', time:'Yesterday', k:'Sales and Seats', day:1 },
+  { t:'<b>Jon Berg</b> replied to your comment on <b>Nested routes</b>', time:'3 days ago', k:'Comments', day:1 },
+  { t:'<b>Kai Moreno</b> enrolled on <b>React Router</b>', time:'4 days ago', k:'Sales and Seats', day:1 },
+];
+const HF_TABS = ['All', 'Unread', 'Comments', 'Sales and Seats'];
+const hfFresh = (unreadCount) => HF_ITEMS.map((n, i) => ({ ...n, id: 600 + i, u: i < unreadCount ? 1 : 0 }));
+
+function hfSide(view) {
+  const nav = [['book','Browse Courses'],['cap','My Courses'],['chart','Analytics'],['msg','Questions']];
+  return `<div class="hf-side"><div class="hf-logo">Cadence</div><div class="hf-nav">${nav.map(([k, l], i) => `<span class="${view !== 'page' && i === 1 ? 'on' : ''}">${ic(k)}${l}</span>`).join('')}</div>
+    <div class="hf-user"><div class="hf-av" style="width:30px;height:30px">SC</div><div><div class="n">Sarah Chen</div><div class="r">Instructor</div></div></div></div>`;
+}
+const hfCourses = (note) => `<h1 class="hf-h1">My Courses</h1><div class="hf-sub">Manage your courses and track student progress.</div>
+  <div class="hf-grid">${[['React Router','128 students · Published'],['TypeScript Deep Dive','64 students · Published'],['Testing with Vitest','Draft'],['Web Performance','Draft']].map(([t, m]) => `<div class="hf-course"><div class="img"></div><div class="b"><div class="t">${t}</div><div class="m">${m}</div></div></div>`).join('')}</div>
+  ${note ? `<div class="hf-nav-note">${note}</div>` : ''}`;
+function hfPage(st) {
+  const unread = st.items.filter(n => n.u).length;
+  const shown = st.items.filter(n => st.tab === 0 || (st.tab === 1 ? n.u : n.k === HF_TABS[st.tab]));
+  const rows = (list) => `<div class="hf-list">${list.map(n => `<div class="hf-row ${n.u ? 'unread' : ''}" data-hf="row" data-id="${n.id}"><div class="hf-av">${initials(n.t)}</div><div class="hf-text">${n.t}</div><div class="hf-time">${n.time}</div><span class="hf-rdot ${n.u ? '' : 'off'}"></span></div>`).join('')}</div>`;
+  const today = shown.filter(n => !n.day), earlier = shown.filter(n => n.day);
+  return `<div class="hf-pagehead"><div><h1 class="hf-h1">Notifications</h1><div class="hf-sub">${unread ? `${unread} unread` : 'All caught up'}</div></div>
+    <button class="hf-btn outline" data-hf="allread">${ic('check')}Mark all as read</button></div>
+    <div class="hf-tabs">${HF_TABS.map((t, i) => `<span class="hf-tab ${i === st.tab ? 'on' : ''}" data-hf="tab" data-i="${i}">${t}${i === 1 && unread ? `<span class="hf-badge">${unread}</span>` : ''}</span>`).join('')}</div>
+    ${today.length ? '<div class="hf-group">Today</div>' + rows(today) : ''}${earlier.length ? '<div class="hf-group">Earlier</div>' + rows(earlier) : ''}
+    ${shown.length ? '' : '<div class="hf-empty" style="padding:40px"><b>Nothing here</b><span>Notifications in this tab will show up here.</span></div>'}`;
+}
+function hfCardInner(n, len, idx, contentAnim) {
+  const shown = Math.min(len, 5), cur = Math.min(idx, shown - 1);
+  const segs = len > 1 ? `<div class="hf-segs">${Array.from({length: shown}, (_, i) => `<i class="${i === cur ? 'on' : ''} ${len > 5 && i === shown - 1 ? 'more' : ''}"></i>`).join('')}</div>` : '';
+  const left = len > 1 ? `<div class="hf-flip"><button class="hf-ib" data-hf="prev" aria-label="Previous">${ic('left')}</button><button class="hf-ib" data-hf="next" aria-label="Next">${ic('right')}</button></div>` : (len === 1 && idx >= 0 ? '<span class="hf-last">Last one</span>' : '<span class="hf-last">New</span>');
+  return `<button class="hf-x" data-hf="x" aria-label="Mark as read">${ic('x')}</button>${segs}
+    <div class="hf-content ${contentAnim || ''}"><div class="hf-body"><div class="hf-av">${initials(n.t)}</div><div><div class="hf-text">${n.t}</div><div class="hf-time">${n.time}</div></div></div>
+    <div class="hf-foot">${left}<button class="hf-btn" data-hf="open">Open${ic('arrow')}</button></div></div>`;
+}
+function hfOverlay(st) {
+  const u = st.items.filter(n => n.u), a = st.anim || {};
+  let out = `<button class="hf-bell ${st.open ? 'on' : ''}" data-hf="bell" aria-label="Notifications">${ic('bell')}${u.length ? `<span class="hf-dot ${a.dot || ''}"></span>` : ''}</button>`;
+  const all = `<div class="hf-all"><span data-hf="all">All notifications${ic('arrow')}</span></div>`;
+  if (st.open) {
+    const inner = u.length ? hfCardInner(u[st.idx % u.length], u.length, st.idx % u.length, a.content)
+      : `<div class="hf-empty"><b>You're all caught up</b><span>New notifications will show up here.</span></div>`;
+    out += `<div class="hf-deck ${a.deck || ''}"><div class="hf-card">${inner}</div>${all}</div>`;
+  } else if (st.toast) {
+    out += `<div class="hf-deck ${a.toast || ''}"><div class="hf-card">${hfCardInner(st.toast, 1, -1)}</div></div>`;
+  }
+  return out;
+}
+const hfApp = (st, theme) => `<div class="hf ${theme}"><div class="hf-app">${hfSide(st.view)}<div class="hf-main"><div class="hf-scroll">${st.view === 'page' ? hfPage(st) : hfCourses(st.note)}</div>${hfOverlay(st)}</div></div></div>`;
+
+const base = (over) => ({ items: hfFresh(7), open:false, idx:0, view:'app', tab:0, toast:null, ...over });
+const shots = [
+  ['Light', 'Deck open, 7 unread: 5 segments, last one dotted', base({ open:true }), 'light'],
+  ['Light', 'New notification drops out of the bell', (() => { const st = base({}); st.toast = st.items[0]; return st; })(), 'light'],
+  ['Light', 'Expanded: the notifications page, All tab', base({ view:'page' }), 'light'],
+  ['Dark', 'Deck open, 3 left, flipped to the second', base({ items: hfFresh(3), open:true, idx:1 }), 'dark'],
+  ['Dark', 'Last card: no segments, no arrows', base({ items: hfFresh(1), open:true }), 'dark'],
+  ['Dark', 'Notifications page, Unread tab', base({ items: hfFresh(3), view:'page', tab:1 }), 'dark'],
+];
+document.getElementById('hfshots').innerHTML = shots.map(([th, cap, st, theme]) => `<div><div class="hf-cap"><b>${th}</b>${cap}</div>${hfApp(st, theme)}</div>`).join('');
+
+let HF, HFtheme = 'light', hfToastTimer;
+function hfReset() { HF = base({ note:'' }); HF.poolN = 0; }
+hfReset();
+function hfRender() {
+  const u = HF.items.filter(n => n.u);
+  if (HF.idx >= u.length) HF.idx = 0;
+  document.getElementById('hflive').innerHTML = hfApp(HF, HFtheme);
+  document.getElementById('hfstate').textContent = `${u.length} unread (the compact view never shows this number)`;
+  HF.anim = {};
+}
+const hfLive = (sel) => document.querySelector('#hflive ' + sel);
+function hfCloseDeck(then) { const d = hfLive('.hf-deck'); if (d) d.classList.add('leave'); setTimeout(() => { HF.open = false; then && then(); hfRender(); }, 140); }
+function hfGo(n) {
+  if (!n) return;
+  n.u = 0; HF.toast = null; HF.view = 'app';
+  HF.note = `Opened: ${n.t.replace(/<[^>]+>/g, '')}`;
+  if (HF.open) hfCloseDeck(); else hfRender();
+}
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-hf]'), inLive = e.target.closest('#hflive');
+  if (!el) { if (inLive && HF.open && !e.target.closest('.hf-deck')) hfCloseDeck(); return; }
+  if (!inLive && !['sim', 'theme', 'reset'].includes(el.dataset.hf)) return;
+  const a = el.dataset.hf, u = HF.items.filter(n => n.u);
+  if (a === 'bell') { if (HF.open) return hfCloseDeck(); HF.open = true; HF.toast = null; HF.idx = 0; HF.anim = { deck:'enter' }; }
+  else if (a === 'prev' && u.length) { HF.idx = (HF.idx - 1 + u.length) % u.length; HF.anim = { content:'in-left' }; }
+  else if (a === 'next' && u.length) { HF.idx = (HF.idx + 1) % u.length; HF.anim = { content:'in-right' }; }
+  else if (a === 'x') {
+    if (HF.toast) { const t = HF.toast; const d = hfLive('.hf-deck'); d && d.classList.add('toast-out'); clearTimeout(hfToastTimer); setTimeout(() => { t.u = 0; HF.toast = null; hfRender(); }, 300); return; }
+    const c = hfLive('.hf-content'); c && c.classList.add('out');
+    setTimeout(() => { if (u[HF.idx]) u[HF.idx].u = 0; HF.anim = { content:'in-up' }; hfRender(); }, 160); return;
+  }
+  else if (a === 'open') return hfGo(HF.toast || u[HF.idx]);
+  else if (a === 'all') { HF.view = 'page'; HF.note = ''; return hfCloseDeck(); }
+  else if (a === 'tab') HF.tab = +el.dataset.i;
+  else if (a === 'row') return hfGo(HF.items.find(x => x.id === +el.dataset.id));
+  else if (a === 'allread') HF.items.forEach(n => n.u = 0);
+  else if (a === 'theme') HFtheme = HFtheme === 'light' ? 'dark' : 'light';
+  else if (a === 'reset') hfReset();
+  else if (a === 'sim') {
+    const pool = [{ t:'<b>Zoe Hart</b> commented on <b>Error boundaries</b> in <b>React Router</b>', k:'Comments' }, { t:'<b>Sam Rivera</b> enrolled on <b>TypeScript Deep Dive</b>', k:'Sales and Seats' }];
+    const n = { ...pool[HF.poolN++ % pool.length], time:'Just now', day:0, u:1, id: 700 + HF.poolN };
+    const hadUnread = u.length > 0;
+    HF.items.unshift(n);
+    HF.anim = hadUnread ? {} : { dot:'pop' };
+    if (!HF.open) {
+      HF.toast = n; HF.anim.toast = 'toast-in';
+      clearTimeout(hfToastTimer);
+      hfToastTimer = setTimeout(() => { const d = hfLive('.hf-deck'); if (d && HF.toast === n) { d.classList.add('toast-out'); setTimeout(() => { if (HF.toast === n) { HF.toast = null; hfRender(); } }, 300); } }, 6000);
+    }
+  }
+  hfRender();
+});
+document.addEventListener('keydown', (e) => {
+  if (!HF.open) return;
+  const u = HF.items.filter(n => n.u);
+  if (e.key === 'Escape') return hfCloseDeck();
+  if (!u.length) return;
+  if (e.key === 'ArrowLeft') { HF.idx = (HF.idx - 1 + u.length) % u.length; HF.anim = { content:'in-left' }; }
+  else if (e.key === 'ArrowRight') { HF.idx = (HF.idx + 1) % u.length; HF.anim = { content:'in-right' }; }
+  else return;
+  hfRender();
+});
+hfRender();
+
+/* pan and zoom */
+const vp = document.getElementById('viewport'), cv = document.getElementById('canvas'), zl = document.getElementById('zlabel');
+let s = 1, x = 0, y = 0, drag = null;
+const apply = () => { cv.style.transform = `translate(${x}px,${y}px) scale(${s})`; zl.textContent = Math.round(s*100)+'%'; };
+const zoomAt = (f, cx, cy) => { const ns = Math.min(2.5, Math.max(0.25, s*f)); x = cx - (cx - x)*(ns/s); y = cy - (cy - y)*(ns/s); s = ns; apply(); };
+vp.addEventListener('pointerdown', e => { if (e.target.closest('[data-act], [data-a3], [data-a4], [data-hf], #live, #live3, #live4, #hflive')) return; drag = {sx:e.clientX - x, sy:e.clientY - y}; vp.classList.add('dragging'); });
+window.addEventListener('pointermove', e => { if (!drag) return; x = e.clientX - drag.sx; y = e.clientY - drag.sy; apply(); });
+window.addEventListener('pointerup', () => { drag = null; vp.classList.remove('dragging'); });
+vp.addEventListener('wheel', e => { e.preventDefault(); if (e.ctrlKey || e.metaKey) zoomAt(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY); else { x -= e.deltaX; y -= e.deltaY; apply(); } }, {passive:false});
+document.getElementById('zin').onclick = () => zoomAt(1.2, innerWidth/2, innerHeight/2);
+document.getElementById('zout').onclick = () => zoomAt(1/1.2, innerWidth/2, innerHeight/2);
+document.getElementById('fit').onclick = () => { s = Math.min(1, innerWidth / (cv.scrollWidth + 40)); x = 20; y = 50; apply(); };
+document.getElementById('fit').click();
+</script>
+</body>
+</html>
